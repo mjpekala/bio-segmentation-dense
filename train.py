@@ -2,11 +2,13 @@
    Trains a dense (per-pixel) classifier.
 """
 
+
+from __future__ import print_function
+
 __author__ = 'mjp, Oct 2016'
 __license__ = 'Apache 2.0'
 
 
-from __future__ import print_function
 
 import os, sys
 import pdb
@@ -56,7 +58,7 @@ def load_multilayer_tiff(data_file):
     X = np.concatenate(X, axis=0) 
 
     # add a channel dimension 
-    if ndim == 3:
+    if X.ndim == 3:
         X = X[:, np.newaxis, :, :]
         
     return X
