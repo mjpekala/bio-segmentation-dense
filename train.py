@@ -247,7 +247,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30):
             # data augmentation 
             Xi = apply_symmetry(Xi)
 
-            # TODO: apply deformations (affects X and Y)
+            # TODO: apply elastic deformations to X and Y
 
             # train this mini-batch
             loss, acc = model.train_on_batch(Xi, Yi)
@@ -260,6 +260,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30):
         # evaluate performance on validation data
         Y_hat_valid = model.predict(X_valid)
         print('f1 on validation data: %0.2f' % f1_score(Y_valid, Y_hat_valid))
+        np.save('y_valid_hat_%04d.npy' % ii, Y_hat_valid)
 
     return acc_all
 
