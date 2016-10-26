@@ -15,6 +15,8 @@ import pdb
 from PIL import Image
 import numpy as np
 
+np.random.seed(9999)
+
 from keras.models import Model
 from keras.layers import Input, merge, Convolution2D, MaxPooling2D, UpSampling2D
 from keras.optimizers import Adam
@@ -275,7 +277,7 @@ if __name__ == '__main__':
     X_train = load_multilayer_tiff(os.path.join(isbi_dir, 'train-volume.tif'))
     Y_train = load_multilayer_tiff(os.path.join(isbi_dir, 'train-labels.tif'))
     
-    Y_train = Y_train / 255  # map to [0 1]
+    Y_train = 1 - Y_train / 255.  # map to [0 1]
 
     # split into train and valid
     train_slices = range(20)
