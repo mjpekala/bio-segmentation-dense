@@ -261,7 +261,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30):
 
         # evaluate performance on validation data
         Y_hat_valid = model.predict(X_valid)
-        print('f1 on validation data: %0.2f' % f1_score(Y_valid, Y_hat_valid))
+        print('f1 on validation data: %0.3f' % f1_score(Y_valid, Y_hat_valid))
         np.save('y_valid_hat_%04d.npy' % ii, Y_hat_valid)
 
     return acc_all
@@ -277,7 +277,7 @@ if __name__ == '__main__':
     X_train = load_multilayer_tiff(os.path.join(isbi_dir, 'train-volume.tif'))
     Y_train = load_multilayer_tiff(os.path.join(isbi_dir, 'train-labels.tif'))
     
-    Y_train = 1 - Y_train / 255.  # map to [0 1]
+    Y_train = 1 - Y_train / 255.  # map to [0 1] and make 1 \equiv membrane
 
     # split into train and valid
     train_slices = range(20)
@@ -289,5 +289,5 @@ if __name__ == '__main__':
 
     # train model 
     acc = model = create_unet((1, X_train.shape[-2], X_train.shape[-1]))
-    train_model(X_train, Y_train, X_valid, Y_valid, model)
+    train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=300)
 
