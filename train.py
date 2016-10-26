@@ -147,15 +147,27 @@ def apply_symmetry(X):
 #-------------------------------------------------------------------------------
 
 def f1_score(y_true, y_hat):
-    """ This is also termed 'Dice coefficient'.
+    """ Note: this works for keras objects (e.g. during training) or 
+              on numpy objects.
     """
     # TODO: discrete vs continuous y_hat values
-    y_true_flat = K.flatten(y_true)
-    y_hat_flat = K.flatten(y_hat)
+    try: 
+        # default is to assume a Keras object
+        y_true_flat = K.flatten(y_true)
+        y_hat_flat = K.flatten(y_hat)
     
-    intersection = K.sum(y_hat_flat * y_true_flat) 
-    precision = intersection / K.sum(y_hat_flat)
-    recall = intersection / K.sum(y_true_flat)
+        intersection = K.sum(y_hat_flat * y_true_flat) 
+        precision = intersection / K.sum(y_hat_flat)
+        recall = intersection / K.sum(y_true_flat)
+    except AttributeError:
+        # probably was a numpy array instead
+        y_true_flat = y_true.flatten()
+        y_hat_flat = y_hat.flatten()
+    
+        intersection = np.sum(y_hat_flat * y_true_flat) 
+        precision = intersection / np.sum(y_hat_flat)
+        recall = intersection / np.sum(y_true_flat)
+        
     f1 = 2 * precision * recall / (precision + recall) 
     return f1
 
@@ -226,6 +238,8 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30):
     acc_all = []
     
     for ii in range(n_epochs):
+        print('starting epoch %d (of %d)' % (ii, n_epochs))
+
         for idx in minibatch_indices(X_train.shape[0]):
             Xi = X_train[idx,...]
             Yi = Y_train[idx,...]
@@ -239,62 +253,17 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30):
             loss, acc = model.train_on_batch(Xi, Yi)
             acc_all.append(acc)
 
+        # save state
+        fn_out = 'weights_%04d.hdf5' % ii
+        model.save_weights(fn_out)
+
+        # evaluate performance on validation data
+        Y_hat_valid = model.predict(X_valid)
+        print('f1 on validation data: %0.2f' % f1_score(Y_valid, Y_hat_valid))
+
     return acc_all
 
              
-
-def train_and_predict():
-    print('-'*30)
-    print('Loading and preprocessing train data...')
-    print('-'*30)
-    imgs_train, imgs_mask_train = load_train_data()
-
-    imgs_train = preprocess(imgs_train)
-    imgs_mask_train = preprocess(imgs_mask_train)
-
-    imgs_train = imgs_train.astype('float32')
-    mean = np.mean(imgs_train)  # mean for data centering
-    std = np.std(imgs_train)  # std for data normalization
-
-    imgs_train -= mean
-    imgs_train /= std
-
-    imgs_mask_train = imgs_mask_train.astype('float32')
-    imgs_mask_train /= 255.  # scale masks to [0, 1]
-
-    print('-'*30)
-    print('Creating and compiling model...')
-    print('-'*30)
-    model = get_unet()
-    model_checkpoint = ModelCheckpoint('unet.hdf5', monitor='loss', save_best_only=True)
-
-    print('-'*30)
-    print('Fitting model...')
-    print('-'*30)
-    model.fit(imgs_train, imgs_mask_train, batch_size=32, nb_epoch=20, verbose=1, shuffle=True,
-              callbacks=[model_checkpoint])
-
-    print('-'*30)
-    print('Loading and preprocessing test data...')
-    print('-'*30)
-    imgs_test, imgs_id_test = load_test_data()
-    imgs_test = preprocess(imgs_test)
-
-    imgs_test = imgs_test.astype('float32')
-    imgs_test -= mean
-    imgs_test /= std
-
-    print('-'*30)
-    print('Loading saved weights...')
-    print('-'*30)
-    model.load_weights('unet.hdf5')
-
-    print('-'*30)
-    print('Predicting masks on test data...')
-    print('-'*30)
-    imgs_mask_test = model.predict(imgs_test, verbose=1)
-    np.save('imgs_mask_test.npy', imgs_mask_test)
-
     
 #-------------------------------------------------------------------------------
 if __name__ == '__main__':
@@ -316,6 +285,6 @@ if __name__ == '__main__':
     Y_train = Y_train[train_slices,:,:]
 
     # train model 
-    model = create_unet((1, X_train.shape[-2], X_train.shape[-1]))
+    acc = model = create_unet((1, X_train.shape[-2], X_train.shape[-1]))
     train_model(X_train, Y_train, X_valid, Y_valid, model)
 
