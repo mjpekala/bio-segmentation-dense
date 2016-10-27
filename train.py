@@ -20,7 +20,7 @@ from scipy.interpolate import interp2d
 np.random.seed(9999)
 
 from keras.models import Model
-from keras.layers import Input, merge, Convolution2D, MaxPooling2D, UpSampling2D
+from keras.layers import Input, merge, Convolution2D, MaxPooling2D, UpSampling2D, Dropout
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as K
@@ -332,6 +332,7 @@ if __name__ == '__main__':
     Y_valid = Y_train[valid_slices,:,:]
     X_train = X_train[train_slices,:,:,:]
     Y_train = Y_train[train_slices,:,:]
+    print('[info]: training data has shape: %s' % str(X_train.shape))
 
     # train model 
     model = create_unet((1, X_train.shape[-2], X_train.shape[-1]))
