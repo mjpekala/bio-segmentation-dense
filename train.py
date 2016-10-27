@@ -13,7 +13,9 @@ __license__ = 'Apache 2.0'
 import os, sys
 import pdb
 from PIL import Image
+
 import numpy as np
+from scipy.interpolate import interp2d
 
 np.random.seed(9999)
 
@@ -75,7 +77,7 @@ def minibatch_indices(n_examples, mb_size=10):
         yield idx[ii:ii+n_this_batch]
 
 
-def apply_symmetry(X):
+def apply_symmetries(X):
     """Implements synthetic data augmentation by randomly appling
     an element of the group of symmetries of the square to a single 
     mini-batch of data.
@@ -144,6 +146,40 @@ def apply_symmetry(X):
 
 
 
+def apply_warping(Z, scale=2):
+    assert(Z.ndim == 2)
+
+    # indices of the original lattice upon which Z lives
+    x = np.arange(Z.shape[0])
+    y = np.arange(Z.shape[1])
+
+    xx, yy = np.meshgrid(x,y) 
+
+    # perturbations to the lattice
+    m = int(np.ceil(Z.shape[0] / 3.))
+    n = int(np.ceil(Z.shape[1] / 3.))
+
+    dx = scale * np.random.randn(3,3)
+    dx = np.kron(dx, np.ones((m,n)))
+    dx = dx[0:Z.shape[0], 0:Z.shape[1]]  # truncate
+
+    dy = scale * np.random.randn(3,3)
+    dy = np.kron(dy, np.ones((m,n)))
+    dy = dy[0:Z.shape[0], 0:Z.shape[1]]  # truncate
+
+    # perturbed locations
+    xx_d = xx + dx
+    yy_d = yy + dy
+
+    # interpolated result
+    f_interp = interp2d(xx_d, yy_d, Z, kind='cubic');
+
+    Z_out = f_interp(x, y)
+
+    pdb.set_trace() # TEMP 
+    return Z_out
+
+
 #-------------------------------------------------------------------------------
 # CNN functions
 #-------------------------------------------------------------------------------
@@ -174,8 +210,10 @@ def f1_score(y_true, y_hat):
     return f1
 
 
+
 def f1_score_loss(y_true, y_hat):
     return -f1_score(y_true, y_hat)
+
 
 
 def create_unet(sz):
@@ -205,6 +243,7 @@ def create_unet(sz):
 
     conv4 = Convolution2D(256, 3, 3, activation='relu', border_mode='same')(pool3)
     conv4 = Convolution2D(256, 3, 3, activation='relu', border_mode='same')(conv4)
+    conv4 = Dropout(.5)(conv4) # mjp
     pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
 
     conv5 = Convolution2D(512, 3, 3, activation='relu', border_mode='same')(pool4)
@@ -247,7 +286,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30):
             Yi = Y_train[idx,...]
 
             # data augmentation 
-            Xi = apply_symmetry(Xi)
+            Xi = apply_symmetries(Xi)
+            for jj in range(Xi.shape[0]):
+                Xi[jj,0,...] = apply_warping(Xi[jj,0,...])
 
             # TODO: apply elastic deformations to X and Y
 
@@ -288,6 +329,6 @@ if __name__ == '__main__':
     Y_train = Y_train[train_slices,:,:]
 
     # train model 
-    acc = model = create_unet((1, X_train.shape[-2], X_train.shape[-1]))
-    train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=300)
+    #acc = model = create_unet((1, X_train.shape[-2], X_train.shape[-1]))
+    #train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=300)
 
