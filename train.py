@@ -147,6 +147,8 @@ def apply_symmetries(X):
 
 
 def apply_warping(Z, scale=2):
+    return Z # the code below is broken
+    
     assert(Z.ndim == 2)
 
     # indices of the original lattice upon which Z lives
@@ -159,11 +161,17 @@ def apply_warping(Z, scale=2):
     m = int(np.ceil(Z.shape[0] / 3.))
     n = int(np.ceil(Z.shape[1] / 3.))
 
-    dx = scale * np.random.randn(3,3)
+    dx = scale * np.random.rand(3,3)
+    dx = dx * np.array([[-1, 0, 1],
+                        [-1, 0, 1],
+                        [-1, 0, 1]])
     dx = np.kron(dx, np.ones((m,n)))
     dx = dx[0:Z.shape[0], 0:Z.shape[1]]  # truncate
 
-    dy = scale * np.random.randn(3,3)
+    dy = scale * np.random.rand(3,3)
+    dy = dy * np.array([[1, 1, 1],
+                        [0, 0, 0],
+                        [-1, -1, -1]])
     dy = np.kron(dy, np.ones((m,n)))
     dy = dy[0:Z.shape[0], 0:Z.shape[1]]  # truncate
 
@@ -176,7 +184,6 @@ def apply_warping(Z, scale=2):
 
     Z_out = f_interp(x, y)
 
-    pdb.set_trace() # TEMP 
     return Z_out
 
 
@@ -289,8 +296,6 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30):
             Xi = apply_symmetries(Xi)
             for jj in range(Xi.shape[0]):
                 Xi[jj,0,...] = apply_warping(Xi[jj,0,...])
-
-            # TODO: apply elastic deformations to X and Y
 
             # train this mini-batch
             loss, acc = model.train_on_batch(Xi, Yi)
