@@ -334,6 +334,6 @@ if __name__ == '__main__':
     Y_train = Y_train[train_slices,:,:]
 
     # train model 
-    #acc = model = create_unet((1, X_train.shape[-2], X_train.shape[-1]))
-    #train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=300)
+    acc = model = create_unet((1, X_train.shape[-2], X_train.shape[-1]))
+    train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=300)
 
