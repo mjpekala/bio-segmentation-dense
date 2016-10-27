@@ -292,7 +292,8 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30):
             Xi = X_train[idx,...]
             Yi = Y_train[idx,...]
 
-            # data augmentation 
+            # data augmentation
+            # TODO: perhaps random crops?
             Xi = apply_symmetries(Xi)
             for jj in range(Xi.shape[0]):
                 Xi[jj,0,...] = apply_warping(Xi[jj,0,...])
