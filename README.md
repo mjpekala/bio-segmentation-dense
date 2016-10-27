@@ -1,5 +1,7 @@
 # Dense Image Segmentation
 
+**Note: this code is under construction and is not yet ready for public consumption!**
+
 Some codes for segmenting images, with an eye towards biological applications (e.g. electron microscopy).
 
 ## References:
