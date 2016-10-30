@@ -146,8 +146,11 @@ def apply_symmetries(X):
 
 
 
+
 def apply_warping(Z, scale=2):
     return Z # the code below is broken
+
+    # TODO: try PIL.Image transform (see warp argument)
     
     assert(Z.ndim == 2)
 
