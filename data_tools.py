@@ -133,7 +133,7 @@ def apply_symmetries(X, Y=None):
         
 
 
-def make_displacement_mesh(n, sigma=20, n_seed_points=5):
+def make_displacement_mesh(n, sigma=10, n_seed_points=5):
     """ Creates a warping/displacement mesh (for synthetic data augmentation).
     
     Parameters:
