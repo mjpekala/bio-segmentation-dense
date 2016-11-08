@@ -57,7 +57,7 @@ def load_multilayer_tiff(data_file):
 
 
 
-def apply_symmetries(X):
+def apply_symmetries(X, Y=None):
     """Implements synthetic data augmentation by randomly appling
     an element of the group of symmetries of the square to a single 
     mini-batch of data.
@@ -80,7 +80,8 @@ def apply_symmetries(X):
 
 
     Parameters: 
-       X := Mini-batch data (#examples, #channels, rows, colums) 
+       X := Mini-batch data; (#examples, #channels, rows, colums)
+       Y := (optional) mini-batch labels; (#examples, rows, columns)
     """
 
     def R0(X):
@@ -122,7 +123,14 @@ def apply_symmetries(X):
     X2 = np.zeros(X.shape, dtype=np.float32, order='C') 
     X2[...] = op(X)
 
-    return X2
+    if Y is None:
+        return X2
+    else:
+        Y2 = np.zeros(Y.shape, dtype=np.float32, order='C') 
+        Y2[...] = op(Y)
+        return X2, Y2
+        
+        
 
 
 def make_displacement_mesh(n, sigma=20, n_seed_points=5):
@@ -142,13 +150,15 @@ def make_displacement_mesh(n, sigma=20, n_seed_points=5):
     omega_x, omega_y = np.meshgrid(np.arange(n), np.arange(n))
 
     # create random displacement in the domain.
+    # Note: we "overshoot" the domain to avoid edge artifacts when
+    #       interpolating back to the lattice on Z^2.
     d_pts = np.linspace(0, n, n_seed_points)
     d_xx, d_yy = np.meshgrid(d_pts, d_pts)
 
     if sigma > 0:
         # random displacement
         dx = sigma * np.random.randn(d_xx.size)
-        dy = sigma * np.random.randn(d_xx.size)
+        dy = sigma * np.random.randn(d_yy.size)
     else:
         # deterministic displacement (for testing)
         dx = abs(sigma) * np.ones(d_xx.size)
@@ -171,6 +181,11 @@ def make_displacement_mesh(n, sigma=20, n_seed_points=5):
 
 
 def plot_mesh(xx, yy, linespec='k-'):
+    """ Plots a pixel location mesh/lattice.
+    
+     xx : an (m x n) matrix of x-indices
+     yy : an (m x n) matrix of y-indices
+    """
     assert(xx.ndim == 2);  assert(yy.ndim == 2)
     plt.hold(True)
     for r in range(xx.shape[0]):
@@ -184,16 +199,30 @@ def plot_mesh(xx, yy, linespec='k-'):
     
 
 def apply_displacement_mesh(X, omega_xnew, omega_ynew):
+    """Interpolates pixel intensities back into a regular mesh.
+
+    Parameters:
+      X := an (m x n) matrix of pixel intensities
+      omega_xnew := an (m x n) matrix of perturbed x locations in R^2
+      omega_ynew := an (m x n) matrix of perturbed y locations in R^2
+
+    Returns:
+      X_int : an (m x n) matrix of interpolated pixel values
+              which live in Z^2
+    """
     glue = lambda X, Y: np.vstack([X.flatten(), Y.flatten()]).transpose()
+    
     n = X.shape[0]
     assert(X.ndim == 2 and n == X.shape[1])
-    
+
+    # this is the natural/original lattice where we wish to generate
+    # interpolated values.    
     omega_x, omega_y = np.meshgrid(np.arange(n), np.arange(n))
     
     # use interpolation to estimate pixel intensities on original lattice
-    X_new = griddata(glue(omega_xnew, omega_ynew),
+    X_int = griddata(glue(omega_xnew, omega_ynew),
                      X.flatten(),
                      glue(omega_x, omega_y))
-    X_new = np.reshape(X_new, (n,n))
+    X_int = np.reshape(X_int, (n,n))
 
-    return X_new
+    return X_int
