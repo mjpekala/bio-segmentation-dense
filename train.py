@@ -12,7 +12,6 @@ __license__ = 'Apache 2.0'
 import os, sys, time
 
 import numpy as np
-from scipy.interpolate import interp2d
 
 np.random.seed(9999)
 
@@ -21,7 +20,6 @@ from keras.layers import Input, merge, Convolution2D, MaxPooling2D, UpSampling2D
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as K
-from keras.utils.np_utils import to_categorical
 
 from data_tools import *
 
@@ -148,7 +146,6 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         for jj in timed_collection(range(n_mb_per_epoch)):
             Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz=sz)
             loss, f1 = model.train_on_batch(Xi, Yi)
-            #acc = .5 # TEMP for dry runs only
             score_all.append(f1)
 
         # save state
