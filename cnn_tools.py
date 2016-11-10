@@ -5,7 +5,7 @@ Implements semantic segmentation for convnets using Keras.
 
 from __future__ import print_function
 
-__author__ = 'mjp, Oct 2016'
+__author__ = 'mjp, Nov 2016'
 __license__ = 'Apache 2.0'
 
 

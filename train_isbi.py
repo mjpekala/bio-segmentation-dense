@@ -6,7 +6,7 @@
 
 from __future__ import print_function
 
-__author__ = 'mjp, Oct 2016'
+__author__ = 'mjp, Nov 2016'
 __license__ = 'Apache 2.0'
 
 
@@ -51,7 +51,11 @@ if __name__ == '__main__':
     print('[info]: validation labels has shape: %s' % str(Y_valid.shape))
     print('[info]: tile size:                   %s' % str(tile_size))
 
-    # train model 
+    # train model
+    tic = time.time()
     model = create_unet((1, tile_size[0], tile_size[1]))
     train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=12)
+
+    print('[info]: total time to train model: %0.2f min' % (time.time() - tic)/60.)
+    
 
