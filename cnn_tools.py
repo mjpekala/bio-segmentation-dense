@@ -170,8 +170,8 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         Yi_hat = deploy_model(X_valid, model)
         #Xi, Yi = random_crop([X_valid, Y_valid], sz)
         #Yi_hat = model.predict(Xi)
-        #np.savez('valid_epoch%04d.npy' % ii, X=Xi, Y=Yi, Y_hat=Yi_hat, s=score_all)
-        np.savez('valid_epoch%04d.npy' % ii, X=X_valid, Y=Y_valid, Y_hat=Yi_hat, s=score_all)
+        #np.savez('valid_epoch%04d' % ii, X=Xi, Y=Yi, Y_hat=Yi_hat, s=score_all)
+        np.savez('valid_epoch%04d' % ii, X=X_valid, Y=Y_valid, Y_hat=Yi_hat, s=score_all)
 
         print('f1 on validation data:    %0.3f' % f1_score(Y, Yi_hat))
         print('recent train performance: %0.3f' % np.mean(score_all[-20:]))
