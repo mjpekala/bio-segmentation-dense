@@ -60,6 +60,16 @@ def f1_score_loss(y_true, y_hat):
 
 
 
+def pixelwise_crossentropy(y_true, y_hat, w=None):
+    y_hat += 1e-8   # avoid issues with log
+
+    ce = -y_true * K.log(y_hat) - (1. - y_true) * K.log(1 - y_hat)
+    if w is not None:
+        ce *= w
+        
+    return K.mean(ce)
+
+
 def create_unet(sz):
     """
       sz : a tuple specifying the input image size in the form:
@@ -118,7 +128,7 @@ def create_unet(sz):
     model = Model(input=inputs, output=conv10)
 
     #model.compile(optimizer=Adam(lr=1e-5), loss=f1_score_loss, metrics=[f1_score])
-    model.compile(optimizer=Adam(lr=1e-5), loss='categorical_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=Adam(lr=1e-5), loss=pixelwise_crossentropy, metrics=[f1_score])
 
     return model
 
