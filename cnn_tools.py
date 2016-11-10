@@ -146,7 +146,7 @@ def create_unet(sz):
 
 
 def train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=10, n_mb_per_epoch=25, mb_size=30):
+                n_epochs=30, n_mb_per_epoch=25, mb_size=30):
     """
     Note: these are not epochs in the usual sense, since we randomly sample
     the data set (vs methodically marching through it)                
