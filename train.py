@@ -9,8 +9,7 @@ __license__ = 'Apache 2.0'
 
 
 
-import os, sys
-import pdb
+import os, sys, time
 
 import numpy as np
 from scipy.interpolate import interp2d
@@ -24,7 +23,6 @@ from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as K
 
 from data_tools import *
-
 
 
 
@@ -133,7 +131,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     for ii in range(n_epochs):
         print('starting "epoch" %d (of %d)' % (ii, n_epochs))
 
-        for jj in range(n_mb_per_epoch):
+        for jj in timed_collection(range(n_mb_per_epoch)):
             Xi, Yi = random_minibatch(X_train, Y_train, 30, sz=sz)
             loss, acc = model.train_on_batch(Xi, Yi)
             acc_all.append(acc)
@@ -150,7 +148,22 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
     return acc_all
 
-             
+
+
+def timed_collection(c, rate=60*2):
+    """ Provides status on progress as one iterates through a collection.
+    """
+    start_time = time.time()
+    last_chatter = -rate
+
+    for idx, ci in enumerate(c):
+        yield ci
+        
+        elapsed = time.time() - start_time
+        if (elapsed) > last_chatter + rate:
+            last_chatter = elapsed
+            print('finished %d items in %0.2f minutes' % (idx, elapsed/60.))
+                 
     
 #-------------------------------------------------------------------------------
 if __name__ == '__main__':
@@ -178,7 +191,7 @@ if __name__ == '__main__':
     print('[info]: training labels has shape:   %s' % str(Y_train.shape))
     print('[info]: validation data has shape:   %s' % str(X_valid.shape))
     print('[info]: validation labels has shape: %s' % str(Y_valid.shape))
-    print('[info]: tile size:                   %d' % tile_size)
+    print('[info]: tile size:                   %s' % str(tile_size))
 
     # train model 
     model = create_unet((1, tile_size[0], tile_size[1]))
