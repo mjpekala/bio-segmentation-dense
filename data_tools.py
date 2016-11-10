@@ -59,7 +59,7 @@ def load_multilayer_tiff(data_file):
 
 #-------------------------------------------------------------------------------
 
-def random_minibatch(X, Y, num_in_batch, sz=(256, 256)):
+def random_minibatch(X, Y, num_in_batch, sz=(256,256)):
     """ Creates a single minibatch of training data by randomly sampling
     subsets of the training data (X, Y).
 
@@ -81,13 +81,14 @@ def random_minibatch(X, Y, num_in_batch, sz=(256, 256)):
     Y_mb = np.zeros((num_in_batch, Y.shape[1], sz[0], sz[0]), dtype=np.float32)
 
     for ii in range(num_in_batch):
-        # grab a random tile of size sz
+        # grab a random slice
         ni = np.random.randint(low=0, high=n-1)
-        ri = np.random.randint(low=0, high=r-sz[0]-1)
-        ci = np.random.randint(low=0, high=c-sz[1]-1)
-        Xi = X[ni, :, ri:ri+sz[0], ci:ci+sz[1]]
-        Yi = Y[ni, :, ri:ri+sz[0], ci:ci+sz[1]]
+        Xi = X[ni,...];   Yi = Y[ni, ...]
+        
+        # grab a random tile of size sz
+        Xi, Yi = random_crop([Xi, Yi], sz)
 
+        # warp/transform        
         Xi, Yi = apply_symmetry([Xi, Yi])
         #Xi,Yi = apply_warping(Xi, Yi)
 
@@ -120,8 +121,36 @@ def apply_2d_operator(X, op):
         X = np.reshape(X, (np.prod(sz[0:-2]), sz[-2], sz[-1]))
         X_out = [op(X[ii]) for ii in range(X.shape[0])]
         return np.reshape(X_out, sz)
- 
 
+
+    
+def random_crop(tensors, sz):
+    """
+    Grabs a random subset of the spatial dimensions of the provided tensors.
+    The same spatial extent will be extracted from all tensors.
+    
+       tensors := a list of image tensors with dimensions (..., rows, columns)
+       sz      := a tuple (n_rows, n_cols) specifing the size of the crop
+    """
+
+    if isinstance(tensors, list):
+        r,c = tensors[0].shape[-2:]
+    else:
+        # caller provided a single tensor (rather than a list)
+        r,c = tensors.shape[-2:]
+
+    # choose an upper-left corner for the crop
+    ri = np.random.randint(low=0, high=r-sz[0]-1)
+    ci = np.random.randint(low=0, high=c-sz[1]-1)
+
+    # extract subset
+    if isinstance(tensors, list):
+        return [ X[..., ri:ri+sz[0], ci:ci+sz[1]] for X in tensors]
+    else:
+        X = tensors
+        return X[..., ri:ri+sz[0], ci:ci+sz[1]]
+
+ 
     
 def apply_symmetry(tensors, op_idx=-1):
     """Implements synthetic data augmentation by randomly appling
