@@ -56,11 +56,50 @@ def load_multilayer_tiff(data_file):
     return X
 
 
+#-------------------------------------------------------------------------------
 
-def apply_symmetries(X, Y=None):
+def random_minibatch(X, Y, num_in_batch, sz=(256, 256)):
+    """ Creates a single minibatch of training data by randomly sampling
+    subsets of the training data (X, Y).
+
+    This does not methodically examine all subsets of the domain, therefore
+    the notion of an 'epoch' is not tied to some guarantee of covering
+    all data if you use this function.
+
+    Parameters:    
+       X := tensor with dimensions (#examples, #channels, rows, colums)
+       Y := tensor with dimensions (#examples, rows, columns)
+       num_in_batch := scalar; number of objects in the minibatch
+       sz := tuple (n_rows, n_cols) indicating the chip size
+       
+    """
+    n,d,r,c = X.shape
+
+    # preallocate memory for result
+    X_mb = np.zeros((num_in_batch, X.shape[1], sz[0], sz[0]), dtype=np.float32)
+    Y_mb = np.zeros((num_in_batch, Y.shape[1], sz[0], sz[0]), dtype=np.float32)
+
+    for ii in range(num_in_batch):
+        # grab a random tile of size sz
+        ni = np.random.randint(low=0, high=n-1)
+        ri = np.random.randint(low=0, high=r-sz[0]-1)
+        ci = np.random.randint(low=0, high=c-sz[1]-1)
+        Xi = X[ni, :, ri:ri+sz[0], ci:ci+sz[1]]
+        Yi = Y[ni, :, ri:ri+sz[0], ci:ci+sz[1]]
+
+        #Xi,Yi = apply_warping(*apply_symmetry([Xi,Yi]))
+        Xi, Yi = apply_symmetry([Xi, Yi])
+
+        X_mb[ii,...] = Xi
+        Y_mb[ii,...] = Yi
+
+    return X_mb, Y_mb
+
+
+    
+def apply_symmetry(tensors, op_idx=-1):
     """Implements synthetic data augmentation by randomly appling
-    an element of the group of symmetries of the square to a single 
-    mini-batch of data.
+    an element of the group of symmetries of the square.
 
     The default set of data augmentation operations correspond to
     the symmetries of the square (a non abelian group).  The
@@ -79,22 +118,25 @@ def apply_symmetries(X, Y=None):
       http://www.cs.umb.edu/~eb/d4/
 
 
-    Parameters: 
-       X := Mini-batch data; (#examples, #channels, rows, colums)
-       Y := (optional) mini-batch labels; (#examples, rows, columns)
+    Parameters:
+       tensors  := a list of image tensors with dimensions (..., rows, columns)
+       op_index := An integer in [0,7] indicating which operator to apply.
+                   If unspecified, the operation used will be random.
     """
 
     def R0(X):
         return X  # this is the identity map
 
     def M1(X):
-        return X[:,:,::-1,:]
+        return X[..., ::-1, :]
 
     def M2(X): 
-        return X[:,:,:,::-1]
+        return X[..., ::-1]
 
     def D1(X):
-        return np.transpose(X, [0, 1, 3, 2])
+        sz = range(X.ndim)
+        sz[-2], sz[-1] = sz[-1], sz[-2]
+        return np.transpose(X, sz)
 
     def R1(X):
         return D1(M2(X))   # = rot90 on the last two dimensions
@@ -108,32 +150,63 @@ def apply_symmetries(X, Y=None):
     def D2(X):
         return R1(M1(X))
 
-
     symmetries = [R0, R1, R2, R3, M1, M2, D1, D2]
-    op = np.random.choice(symmetries) 
-        
-    # For some reason, the implementation of row and column reversals, 
-    #     e.g.      X[:,:,::-1,:]
-    # break PyCaffe.  Numpy must be doing something under the hood 
-    # (e.g. changing from C order to Fortran order) to implement this 
-    # efficiently which is incompatible w/ PyCaffe.  
-    # Hence the explicit construction of X2 with order 'C' below.
-    #
-    # Not sure this matters for Theano/Keras, but leave in place anyway.
-    X2 = np.zeros(X.shape, dtype=np.float32, order='C') 
-    X2[...] = op(X)
 
-    if Y is None:
-        return X2
+    # choose the operation    
+    op = symmetries[op_idx] if op_idx >= 0 else np.random.choice(symmetries)
+
+    if isinstance(tensors, list): 
+        return [op(x) for x in tensors]
     else:
-        Y2 = np.zeros(Y.shape, dtype=np.float32, order='C') 
-        Y2[...] = op(Y)
-        return X2, Y2
-        
-        
+        # presumably caller passed in just one tensor
+        return op(tensors)
 
 
-def make_displacement_mesh(n, sigma=10, n_seed_points=5):
+
+def apply_2d_operator(X, op):
+    """ Applies the function op to the 2d images contained in the tensor X.
+
+    Parameters:
+       X  : A tensor with dimension (..., rows, cols)
+       op : a function that takes a single argument, an 2d matrix (rows, cols) and
+            returns a new 2d matrix of the same shape.
+
+    Example:
+       op = lambda M: M.transpose()
+       X = np.random.rand(5,5,3,3)
+       Y = apply_2d_operator(X, op)
+       X[0,2,...]
+       Y[0,2,...]
+    """
+    if X.ndim == 2:
+        return op(X)
+    else:
+        sz = X.shape
+        X = np.reshape(X, (np.prod(sz[0:-2]), sz[-2], sz[-1]))
+        X_out = [op(X[ii]) for ii in range(X.shape[0])]
+        return np.reshape(X_out, sz)
+ 
+
+
+def apply_warping(X, Y, sigma=10):
+    n = X.shape[-1]
+    assert(X.shape[-2] == n and Y.shape[-1] == n and Y.shape[-2] == n)
+
+    omega_xnew, omega_ynew = make_displacement_mesh(n, sigma)
+
+    # TODO: working here; address multi-dimensional case
+    X_new = apply_displacement_mesh(X, omega_xnew, omega_ynew)
+    Y_new = apply_displacement_mesh(Y, omega_xnew, omega_ynew)
+
+    # TODO: something smarter here to deal with issues at boundary
+    X_new[np.isnan(X_new)] = 0
+    Y_new[np.isnan(Y_new)] = 0
+    
+    return X_new, Y_new
+
+    
+
+def make_displacement_mesh(n, sigma, n_seed_points=5):
     """ Creates a warping/displacement mesh (for synthetic data augmentation).
     
     Parameters:
