@@ -146,11 +146,12 @@ def create_unet(sz):
 
 
 def train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=30, n_mb_per_epoch=25, mb_size=30, sz=(256, 256)):
+                n_epochs=10, n_mb_per_epoch=25, mb_size=30):
     """
     Note: these are not epochs in the usual sense, since we randomly sample
     the data set (vs methodically marching through it)                
     """
+    sz = model.input_shape[-2:]
     score_all = []
 
     for ii in range(n_epochs):
@@ -165,16 +166,39 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         fn_out = 'weights_epoch%04d.hdf5' % ii
         model.save_weights(fn_out)
 
-        # evaluate performance on (a subset of) validation data
-        Xi, Yi = random_crop([X_valid, Y_valid], sz)
-        Yi_hat = model.predict(Xi)
-        np.savez('valid_epoch%04d.npy' % ii, X=Xi, Y=Yi, Y_hat=Yi_hat, s=score_all)
+        # evaluate performance on validation data
+        Yi_hat = deploy_model(X_valid, model)
+        #Xi, Yi = random_crop([X_valid, Y_valid], sz)
+        #Yi_hat = model.predict(Xi)
+        #np.savez('valid_epoch%04d.npy' % ii, X=Xi, Y=Yi, Y_hat=Yi_hat, s=score_all)
+        np.savez('valid_epoch%04d.npy' % ii, X=X_valid, Y=Y_valid, Y_hat=Yi_hat, s=score_all)
 
-        print('f1 on validation data:    %0.3f' % f1_score(Yi, Yi_hat))
+        print('f1 on validation data:    %0.3f' % f1_score(Y, Yi_hat))
         print('recent train performance: %0.3f' % np.mean(score_all[-20:]))
         print('y_hat min, max, mean:     %0.2f / %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat), np.mean(Yi_hat)))
         
     return score_all
 
 
-    
+
+def deploy_model(X, model):
+    """
+    X : a tensor of dimensions (n_examples, n_channels, n_rows, n_cols)
+
+    Note that n_examples will be used as the minibatch size.
+    """
+    # the only slight complication is that the spatial dimensions of X might
+    # not be a multiple of the tile size.
+    sz = model.input_shape[-2:]
+
+    Y_hat = np.zeros(X.shape)
+
+    for rr in range(0, X.shape[-2], sz[0]):
+        ra = rr if rr+sz[0] < X.shape[-2] else X.shape[-2] - sz[0]
+        rb = ra+sz[0]
+        for cc in range(0, X.shape[-1], sz[1]):
+            ca = cc if cc+sz[1] < X.shape[-1] else X.shape[-1] - sz[-1]
+            cb = ca+sz[1]
+            Y_hat[:,:,ra:rb,ca:cb] = model.predict(X[:, :, ra:rb, ca:cb])
+
+    return Y_hat    
