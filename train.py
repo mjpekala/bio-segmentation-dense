@@ -162,7 +162,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
         print('f1 on validation data:    %0.3f' % f1_score(Yi, Yi_hat))
         print('recent train performance: %0.3f' % np.mean(score_all[-20:]))
-        print('y_hat min, max, median:   %0.2f / %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat), np.median(Yi_hat)))
+        print('y_hat min, max, mean:     %0.2f / %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat), np.mean(Yi_hat)))
         
     return score_all
 
