@@ -1,5 +1,7 @@
 """
-   Trains a dense (per-pixel) classifier.
+   Trains a dense (per-pixel) classifier on the ISBI 2012 data set.
+
+   http://brainiac2.mit.edu/isbi_challenge/
 """
 
 from __future__ import print_function
@@ -8,17 +10,12 @@ __author__ = 'mjp, Oct 2016'
 __license__ = 'Apache 2.0'
 
 
-
 import os, sys, time
 
 import numpy as np
 
 np.random.seed(9999)
 
-from keras.models import Model
-from keras.layers import Input, merge, Convolution2D, MaxPooling2D, UpSampling2D, Dropout
-from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as K
 
 from cnn_tools import *
