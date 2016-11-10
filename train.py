@@ -116,7 +116,8 @@ def create_unet(sz):
 
     model = Model(input=inputs, output=conv10)
 
-    model.compile(optimizer=Adam(lr=1e-5), loss=f1_score_loss, metrics=[f1_score])
+    #model.compile(optimizer=Adam(lr=1e-5), loss=f1_score_loss, metrics=[f1_score])
+    model.compile(optimizer=Adam(lr=1e-5), loss='categorical_crossentropy', metrics=['accuracy'])
 
     return model
 
