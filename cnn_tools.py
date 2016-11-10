@@ -158,8 +158,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
         for jj in timed_collection(range(n_mb_per_epoch)):
             Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz=sz)
-            #loss, f1 = model.train_on_batch(Xi, Yi)
-            f1 = .5 # TEMP
+            loss, f1 = model.train_on_batch(Xi, Yi)
             score_all.append(f1)
 
         # save state
