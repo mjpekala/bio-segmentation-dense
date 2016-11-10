@@ -173,7 +173,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         #np.savez('valid_epoch%04d' % ii, X=Xi, Y=Yi, Y_hat=Yi_hat, s=score_all)
         np.savez('valid_epoch%04d' % ii, X=X_valid, Y=Y_valid, Y_hat=Yi_hat, s=score_all)
 
-        print('f1 on validation data:    %0.3f' % f1_score(Y, Yi_hat))
+        print('f1 on validation data:    %0.3f' % f1_score(Y_valid, Yi_hat))
         print('recent train performance: %0.3f' % np.mean(score_all[-20:]))
         print('y_hat min, max, mean:     %0.2f / %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat), np.mean(Yi_hat)))
         
