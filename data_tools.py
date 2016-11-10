@@ -10,6 +10,7 @@ __license__ = 'Apache 2.0'
 
 import os, sys
 import numpy as np
+from functools import partial
 
 from PIL import Image
 import pylab as plt
@@ -87,14 +88,39 @@ def random_minibatch(X, Y, num_in_batch, sz=(256, 256)):
         Xi = X[ni, :, ri:ri+sz[0], ci:ci+sz[1]]
         Yi = Y[ni, :, ri:ri+sz[0], ci:ci+sz[1]]
 
-        #Xi,Yi = apply_warping(*apply_symmetry([Xi,Yi]))
         Xi, Yi = apply_symmetry([Xi, Yi])
+        #Xi,Yi = apply_warping(Xi, Yi)
 
         X_mb[ii,...] = Xi
         Y_mb[ii,...] = Yi
 
     return X_mb, Y_mb
 
+
+
+def apply_2d_operator(X, op):
+    """ Applies the function op to all 2d images contained in the tensor X.
+
+    Parameters:
+       X  : A tensor with dimension (..., rows, cols)
+       op : a function that takes a single argument, an 2d matrix (rows, cols) and
+            returns a new 2d matrix of the same shape.
+
+    Example:
+       op = lambda M: M.transpose()
+       X = np.random.rand(5,5,3,3)
+       Y = apply_2d_operator(X, op)
+       X[0,2,...]
+       Y[0,2,...]
+    """
+    if X.ndim == 2:
+        return op(X)
+    else:
+        sz = X.shape
+        X = np.reshape(X, (np.prod(sz[0:-2]), sz[-2], sz[-1]))
+        X_out = [op(X[ii]) for ii in range(X.shape[0])]
+        return np.reshape(X_out, sz)
+ 
 
     
 def apply_symmetry(tensors, op_idx=-1):
@@ -163,40 +189,19 @@ def apply_symmetry(tensors, op_idx=-1):
 
 
 
-def apply_2d_operator(X, op):
-    """ Applies the function op to the 2d images contained in the tensor X.
-
-    Parameters:
-       X  : A tensor with dimension (..., rows, cols)
-       op : a function that takes a single argument, an 2d matrix (rows, cols) and
-            returns a new 2d matrix of the same shape.
-
-    Example:
-       op = lambda M: M.transpose()
-       X = np.random.rand(5,5,3,3)
-       Y = apply_2d_operator(X, op)
-       X[0,2,...]
-       Y[0,2,...]
-    """
-    if X.ndim == 2:
-        return op(X)
-    else:
-        sz = X.shape
-        X = np.reshape(X, (np.prod(sz[0:-2]), sz[-2], sz[-1]))
-        X_out = [op(X[ii]) for ii in range(X.shape[0])]
-        return np.reshape(X_out, sz)
- 
-
-
 def apply_warping(X, Y, sigma=10):
-    n = X.shape[-1]
-    assert(X.shape[-2] == n and Y.shape[-1] == n and Y.shape[-2] == n)
+    X0 = get_slice_0(X)
+    
+    # make sure images are square
+    n = X0.shape[0];
+    assert(X0.shape[1] == n)
+    assert(Y.shape[-2] == Y.shape[-1] == n)
 
     omega_xnew, omega_ynew = make_displacement_mesh(n, sigma)
+    f_warp = partial(apply_displacement_mesh, omega_xnew=omega_xnew, omega_ynew=omega_ynew)
 
-    # TODO: working here; address multi-dimensional case
-    X_new = apply_displacement_mesh(X, omega_xnew, omega_ynew)
-    Y_new = apply_displacement_mesh(Y, omega_xnew, omega_ynew)
+    X_new = apply_2d_operator(X, f_warp)
+    Y_new = apply_2d_operator(Y, f_warp)
 
     # TODO: something smarter here to deal with issues at boundary
     X_new[np.isnan(X_new)] = 0
@@ -299,3 +304,15 @@ def apply_displacement_mesh(X, omega_xnew, omega_ynew):
     X_int = np.reshape(X_int, (n,n))
 
     return X_int
+
+
+
+def get_slice_0(X):
+    """ Returns X[0,..,0, :, :]
+    """
+    if X.ndim == 2:
+        return X
+    else:
+        sz = X.shape
+        new_sz = (np.prod(sz[0:-2]), sz[-2], sz[-1])
+        return np.squeeze(np.reshape(X, sz)[0, :, :])
