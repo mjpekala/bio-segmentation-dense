@@ -32,7 +32,6 @@ def f1_score(y_true, y_hat):
     """ Note: this works for keras objects (e.g. during training) or 
               on numpy objects.
     """
-    # TODO: discrete vs continuous y_hat values
     try: 
         # default is to assume a Keras object
         y_true_flat = K.flatten(y_true)
@@ -60,7 +59,7 @@ def f1_score_loss(y_true, y_hat):
 
 
 
-def pixelwise_crossentropy(y_true, y_hat, w=None):
+def pixelwise_crossentropy_loss(y_true, y_hat, w=None):
     y_hat += 1e-8   # avoid issues with log
 
     ce = -y_true * K.log(y_hat) - (1. - y_true) * K.log(1 - y_hat)
@@ -68,6 +67,7 @@ def pixelwise_crossentropy(y_true, y_hat, w=None):
         ce *= w
         
     return K.mean(ce)
+
 
 
 def create_unet(sz):
@@ -84,7 +84,7 @@ def create_unet(sz):
     bm = 'same'
 
     # NOTES:
-    #   o eventually change Deconvolution2D to UpSampling2D
+    #   o possibly change Deconvolution2D to UpSampling2D
     
     inputs = Input(sz)
     conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode=bm)(inputs)
@@ -127,29 +127,29 @@ def create_unet(sz):
 
     model = Model(input=inputs, output=conv10)
 
-    #model.compile(optimizer=Adam(lr=1e-5), loss=f1_score_loss, metrics=[f1_score])
-    model.compile(optimizer=Adam(lr=1e-5), loss=pixelwise_crossentropy, metrics=[f1_score])
+    #model.compile(optimizer=Adam(lr=1e-3), loss=f1_score_loss, metrics=[f1_score])
+    model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_crossentropy_loss, metrics=[f1_score])
 
     return model
 
 
 
 def train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=30, n_mb_per_epoch=10, mb_size=30, sz=(256, 256)):
+                n_epochs=30, n_mb_per_epoch=25, mb_size=30, sz=(256, 256)):
     """
     Note: these are not epochs in the usual sense, since we randomly sample
     the data set (vs methodically marching through it)                
     """
-    acc_all = []
+    score_all = []
 
     for ii in range(n_epochs):
         print('starting "epoch" %d (of %d)' % (ii, n_epochs))
 
         for jj in timed_collection(range(n_mb_per_epoch)):
             Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz=sz)
-            loss, acc = model.train_on_batch(Xi, Yi)
+            loss, f1 = model.train_on_batch(Xi, Yi)
             #acc = .5 # TEMP for dry runs only
-            acc_all.append(acc)
+            score_all.append(f1)
 
         # save state
         fn_out = 'weights_epoch%04d.hdf5' % ii
@@ -160,11 +160,11 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         Yi_hat = model.predict(Xi)
         np.savez('valid_epoch%04d.npy' % ii, X=Xi, Y=Yi, Y_hat=Yi_hat)
 
-        print('f1 on validation data:   %0.3f' % f1_score(Yi, Yi_hat))
-        print('recent train accuracy:   %0.3f' % np.mean(acc_all[-20:]))
-        print('y_hat min, max, median:  %0.2f / %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat), np.median(Yi_hat)))
+        print('f1 on validation data:    %0.3f' % f1_score(Yi, Yi_hat))
+        print('recent train performance: %0.3f' % np.mean(score_all[-20:]))
+        print('y_hat min, max, median:   %0.2f / %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat), np.median(Yi_hat)))
         
-    return acc_all
+    return score_all
 
 
 
