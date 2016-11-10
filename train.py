@@ -21,6 +21,7 @@ from keras.layers import Input, merge, Convolution2D, MaxPooling2D, UpSampling2D
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as K
+from keras.utils.np_utils import to_categorical
 
 from data_tools import *
 
@@ -185,6 +186,7 @@ if __name__ == '__main__':
     X_train = X_train / 255.
     # TODO: normalize image data?
     Y_train = 1 - Y_train / 255.  # map to [0 1] and make 1 := membrane
+    Y_train = Y_train.astype(np.int32)
 
     # split into train and valid
     train_slices = range(20)
