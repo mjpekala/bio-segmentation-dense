@@ -40,6 +40,7 @@ def f1_score(y_true, y_hat):
         intersection = K.sum(y_hat_flat * y_true_flat) 
         precision = intersection / K.sum(y_hat_flat)
         recall = intersection / K.sum(y_true_flat)
+        
     except AttributeError:
         # probably was a numpy array instead
         y_true_flat = y_true.flatten()
@@ -48,9 +49,8 @@ def f1_score(y_true, y_hat):
         intersection = np.sum(y_hat_flat * y_true_flat) 
         precision = intersection / np.sum(y_hat_flat)
         recall = intersection / np.sum(y_true_flat)
-        
-    f1 = 2 * precision * recall / (precision + recall) 
-    return f1
+
+    return 2 * precision * recall / (precision + recall) 
 
 
 
@@ -70,8 +70,10 @@ def create_unet(sz):
         2. https://github.com/jocicmarko/ultrasound-nerve-segmentation/blob/master/train.py
     """
     assert(len(sz) == 3)
-
     bm = 'same'
+
+    # NOTES:
+    #   o eventually change Deconvolution2D to UpSampling2D
     
     inputs = Input(sz)
     conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode=bm)(inputs)
@@ -121,7 +123,7 @@ def create_unet(sz):
 
 
 def train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=30, n_mb_per_epoch=100, sz=(256, 256)):
+                n_epochs=30, n_mb_per_epoch=100, mb_size=30, sz=(256, 256)):
     """
     Note: these are not epochs in the usual sense, since we randomly sample
     the data set (vs methodically marching through it)                
@@ -132,8 +134,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         print('starting "epoch" %d (of %d)' % (ii, n_epochs))
 
         for jj in timed_collection(range(n_mb_per_epoch)):
-            Xi, Yi = random_minibatch(X_train, Y_train, 30, sz=sz)
+            Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz=sz)
             loss, acc = model.train_on_batch(Xi, Yi)
+            #acc = .5 # TEMP for dry runs only
             acc_all.append(acc)
 
         # save state
@@ -143,9 +146,12 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         # evaluate performance on (a subset of) validation data
         Xi, Yi = random_crop([X_valid, Y_valid], sz)
         Yi_hat = model.predict(Xi)
-        print('f1 on validation data: %0.3f' % f1_score(Yi, Yi_hat))
-        np.save('valid_epoch%04d.npy' % ii, Xi, Yi, Yi_hat)
+        np.savez('valid_epoch%04d.npy' % ii, X=Xi, Y=Yi, Y_hat=Yi_hat)
 
+        # 
+        print('f1 on validation data: %0.3f' % f1_score(Yi, Yi_hat))
+        print('recent train accuracy: %0.3f' % np.mean(acc_all[-20:]))
+        
     return acc_all
 
 
@@ -162,7 +168,7 @@ def timed_collection(c, rate=60*2):
         elapsed = time.time() - start_time
         if (elapsed) > last_chatter + rate:
             last_chatter = elapsed
-            print('finished %d items in %0.2f minutes' % (idx, elapsed/60.))
+            print('processed %d items in %0.2f minutes' % (idx+1, elapsed/60.))
                  
     
 #-------------------------------------------------------------------------------
@@ -174,10 +180,10 @@ if __name__ == '__main__':
     isbi_dir = os.path.expanduser('~/Data/ISBI-2012')
     X_train = load_multilayer_tiff(os.path.join(isbi_dir, 'train-volume.tif'))
     Y_train = load_multilayer_tiff(os.path.join(isbi_dir, 'train-labels.tif'))
-    
-    Y_train = 1 - Y_train / 255.  # map to [0 1] and make 1 \equiv membrane
 
-    # TODO: normalize image data??
+    X_train = X_train / 255.
+    # TODO: normalize image data?
+    Y_train = 1 - Y_train / 255.  # map to [0 1] and make 1 := membrane
 
     # split into train and valid
     train_slices = range(20)

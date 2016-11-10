@@ -17,7 +17,6 @@ class TestStuff(unittest.TestCase):
         y_true = np.ones((100,))
         y_hat = np.ones((100,))
         self.assertTrue(np.abs(f1_score(y_true, y_hat) - 1.0) < 1e-8)
-        self.assertTrue(np.abs(f1_score(y_true, 0*y_hat) - 0.0) < 1e-8)
 
         y_hat[0:50] = 0
         self.assertTrue(np.abs(f1_score(y_true, y_hat) - 2./3) < 1e-8)
