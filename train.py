@@ -123,7 +123,7 @@ def create_unet(sz):
 
 
 def train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=30, n_mb_per_epoch=100, mb_size=30, sz=(256, 256)):
+                n_epochs=30, n_mb_per_epoch=10, mb_size=30, sz=(256, 256)):
     """
     Note: these are not epochs in the usual sense, since we randomly sample
     the data set (vs methodically marching through it)                
@@ -148,9 +148,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         Yi_hat = model.predict(Xi)
         np.savez('valid_epoch%04d.npy' % ii, X=Xi, Y=Yi, Y_hat=Yi_hat)
 
-        # 
-        print('f1 on validation data: %0.3f' % f1_score(Yi, Yi_hat))
-        print('recent train accuracy: %0.3f' % np.mean(acc_all[-20:]))
+        print('f1 on validation data:   %0.3f' % f1_score(Yi, Yi_hat))
+        print('recent train accuracy:   %0.3f' % np.mean(acc_all[-20:]))
+        print('y_hat min, max, median:  %0.2f / %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat), np.median(Yi_hat)))
         
     return acc_all
 
