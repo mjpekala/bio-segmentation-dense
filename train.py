@@ -28,15 +28,6 @@ from data_tools import *
 
 
 
-def minibatch_indices(n_examples, mb_size=10):
-    idx = np.arange(n_examples)
-    np.random.shuffle(idx)
-
-    for ii in range(0, n_examples, mb_size):
-        n_this_batch = min(mb_size, n_examples-ii)
-        yield idx[ii:ii+n_this_batch]
-
-
 
 def f1_score(y_true, y_hat):
     """ Note: this works for keras objects (e.g. during training) or 
@@ -81,43 +72,45 @@ def create_unet(sz):
         2. https://github.com/jocicmarko/ultrasound-nerve-segmentation/blob/master/train.py
     """
     assert(len(sz) == 3)
+
+    bm = 'same'
     
     inputs = Input(sz)
-    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(inputs)
-    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv1)
+    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode=bm)(inputs)
+    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode=bm)(conv1)
     pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
 
-    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(pool1)
-    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(conv2)
+    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode=bm)(pool1)
+    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode=bm)(conv2)
     pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
 
-    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(pool2)
-    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(conv3)
+    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode=bm)(pool2)
+    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode=bm)(conv3)
     pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
 
-    conv4 = Convolution2D(256, 3, 3, activation='relu', border_mode='same')(pool3)
-    conv4 = Convolution2D(256, 3, 3, activation='relu', border_mode='same')(conv4)
+    conv4 = Convolution2D(256, 3, 3, activation='relu', border_mode=bm)(pool3)
+    conv4 = Convolution2D(256, 3, 3, activation='relu', border_mode=bm)(conv4)
     conv4 = Dropout(.5)(conv4) # mjp
     pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
 
-    conv5 = Convolution2D(512, 3, 3, activation='relu', border_mode='same')(pool4)
-    conv5 = Convolution2D(512, 3, 3, activation='relu', border_mode='same')(conv5)
+    conv5 = Convolution2D(512, 3, 3, activation='relu', border_mode=bm)(pool4)
+    conv5 = Convolution2D(512, 3, 3, activation='relu', border_mode=bm)(conv5)
 
     up6 = merge([UpSampling2D(size=(2, 2))(conv5), conv4], mode='concat', concat_axis=1)
-    conv6 = Convolution2D(256, 3, 3, activation='relu', border_mode='same')(up6)
-    conv6 = Convolution2D(256, 3, 3, activation='relu', border_mode='same')(conv6)
+    conv6 = Convolution2D(256, 3, 3, activation='relu', border_mode=bm)(up6)
+    conv6 = Convolution2D(256, 3, 3, activation='relu', border_mode=bm)(conv6)
 
     up7 = merge([UpSampling2D(size=(2, 2))(conv6), conv3], mode='concat', concat_axis=1)
-    conv7 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(up7)
-    conv7 = Convolution2D(128, 3, 3, activation='relu', border_mode='same')(conv7)
+    conv7 = Convolution2D(128, 3, 3, activation='relu', border_mode=bm)(up7)
+    conv7 = Convolution2D(128, 3, 3, activation='relu', border_mode=bm)(conv7)
 
     up8 = merge([UpSampling2D(size=(2, 2))(conv7), conv2], mode='concat', concat_axis=1)
-    conv8 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(up8)
-    conv8 = Convolution2D(64, 3, 3, activation='relu', border_mode='same')(conv8)
+    conv8 = Convolution2D(64, 3, 3, activation='relu', border_mode=bm)(up8)
+    conv8 = Convolution2D(64, 3, 3, activation='relu', border_mode=bm)(conv8)
 
     up9 = merge([UpSampling2D(size=(2, 2))(conv8), conv1], mode='concat', concat_axis=1)
-    conv9 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(up9)
-    conv9 = Convolution2D(32, 3, 3, activation='relu', border_mode='same')(conv9)
+    conv9 = Convolution2D(32, 3, 3, activation='relu', border_mode=bm)(up9)
+    conv9 = Convolution2D(32, 3, 3, activation='relu', border_mode=bm)(conv9)
 
     conv10 = Convolution2D(1, 1, 1, activation='sigmoid')(conv9)
 
@@ -129,34 +122,31 @@ def create_unet(sz):
 
 
 
-def train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30):
+def train_model(X_train, Y_train, X_valid, Y_valid, model,
+                n_epochs=30, n_mb_per_epoch=100, sz=(256, 256)):
+    """
+    Note: these are not epochs in the usual sense, since we randomly sample
+    the data set (vs methodically marching through it)                
+    """
     acc_all = []
-    
+
     for ii in range(n_epochs):
-        print('starting epoch %d (of %d)' % (ii, n_epochs))
+        print('starting "epoch" %d (of %d)' % (ii, n_epochs))
 
-        for idx in minibatch_indices(X_train.shape[0]):
-            Xi = X_train[idx,...]
-            Yi = Y_train[idx,...]
-
-            # data augmentation
-            # TODO: perhaps random crops?
-            Xi, Yi = apply_symmetries(Xi, Yi)
-            for jj in range(Xi.shape[0]):
-                Xi[jj,0,...] = apply_warping(Xi[jj,0,...])
-
-            # train this mini-batch
+        for jj in range(n_mb_per_epoch):
+            Xi, Yi = random_minibatch(X_train, Y_train, 30, sz=sz)
             loss, acc = model.train_on_batch(Xi, Yi)
             acc_all.append(acc)
 
         # save state
-        fn_out = 'weights_%04d.hdf5' % ii
+        fn_out = 'weights_epoch%04d.hdf5' % ii
         model.save_weights(fn_out)
 
-        # evaluate performance on validation data
-        Y_hat_valid = model.predict(X_valid)
-        print('f1 on validation data: %0.3f' % f1_score(Y_valid, Y_hat_valid))
-        np.save('y_valid_hat_%04d.npy' % ii, Y_hat_valid)
+        # evaluate performance on (a subset of) validation data
+        Xi, Yi = random_crop([X_valid, Y_valid], sz)
+        Yi_hat = model.predict(Xi)
+        print('f1 on validation data: %0.3f' % f1_score(Yi, Yi_hat))
+        np.save('valid_epoch%04d.npy' % ii, Xi, Yi, Yi_hat)
 
     return acc_all
 
@@ -165,6 +155,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30):
 #-------------------------------------------------------------------------------
 if __name__ == '__main__':
     K.set_image_dim_ordering('th')
+    tile_size = (256, 256)
     
     # load raw data
     isbi_dir = os.path.expanduser('~/Data/ISBI-2012')
@@ -173,16 +164,23 @@ if __name__ == '__main__':
     
     Y_train = 1 - Y_train / 255.  # map to [0 1] and make 1 \equiv membrane
 
+    # TODO: normalize image data??
+
     # split into train and valid
     train_slices = range(20)
-    valid_slices = range(20,30)
-    X_valid = X_train[valid_slices,:,:,:]
-    Y_valid = Y_train[valid_slices,:,:]
-    X_train = X_train[train_slices,:,:,:]
-    Y_train = Y_train[train_slices,:,:]
-    print('[info]: training data has shape: %s' % str(X_train.shape))
+    valid_slices = range(25,30)
+    X_valid = X_train[valid_slices,...]
+    Y_valid = Y_train[valid_slices,...]
+    X_train = X_train[train_slices,...]
+    Y_train = Y_train[train_slices,...]
+    
+    print('[info]: training data has shape:     %s' % str(X_train.shape))
+    print('[info]: training labels has shape:   %s' % str(Y_train.shape))
+    print('[info]: validation data has shape:   %s' % str(X_valid.shape))
+    print('[info]: validation labels has shape: %s' % str(Y_valid.shape))
+    print('[info]: tile size:                   %d' % tile_size)
 
     # train model 
-    model = create_unet((1, X_train.shape[-2], X_train.shape[-1]))
-    train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=300)
+    model = create_unet((1, tile_size[0], tile_size[1]))
+    train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30, sz=tile_size)
 
