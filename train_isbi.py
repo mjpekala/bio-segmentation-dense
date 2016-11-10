@@ -53,5 +53,5 @@ if __name__ == '__main__':
 
     # train model 
     model = create_unet((1, tile_size[0], tile_size[1]))
-    train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30, sz=tile_size)
+    train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=30)
 
