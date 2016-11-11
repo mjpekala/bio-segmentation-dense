@@ -40,43 +40,25 @@ def timed_collection(c, rate=60*2):
                              
 
 def f1_score(y_true, y_hat):
-    """ Note: this works for keras objects (e.g. during training) or 
-              on numpy objects.
+    """ 
     """
-    try: 
-        # default is to assume a Keras object
-        y_true_flat = K.flatten(y_true)
-        y_hat_flat = K.flatten(y_hat)
+    y_true_flat = y_true.flatten()
+    y_hat_flat = y_hat.flatten()
     
-        intersection = K.sum(y_hat_flat * y_true_flat) 
-        precision = intersection / K.sum(y_hat_flat)
-        recall = intersection / K.sum(y_true_flat)
-        
-    except AttributeError:
-        # probably was a numpy array instead
-        y_true_flat = y_true.flatten()
-        y_hat_flat = y_hat.flatten()
-    
-        intersection = np.sum(y_hat_flat * y_true_flat) 
-        precision = intersection / np.sum(y_hat_flat)
-        recall = intersection / np.sum(y_true_flat)
+    intersection = np.sum(y_hat_flat * y_true_flat) 
+    precision = intersection / np.sum(y_hat_flat)
+    recall = intersection / np.sum(y_true_flat)
 
     return 2 * precision * recall / (precision + recall) 
 
 
 
-def f1_score_loss(y_true, y_hat):
-    return -f1_score(y_true, y_hat)
-
-
 
 def pixelwise_crossentropy_loss(y_true, y_hat, w=None):
     y_hat += 1e-8   # avoid issues with log
-
     ce = -y_true * K.log(y_hat) - (1. - y_true) * K.log(1 - y_hat)
     if w is not None:
         ce *= w
-        
     return K.mean(ce)
 
 
@@ -138,7 +120,6 @@ def create_unet(sz):
 
     model = Model(input=inputs, output=conv10)
 
-    #model.compile(optimizer=Adam(lr=1e-3), loss=f1_score_loss, metrics=[f1_score])
     model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_crossentropy_loss, metrics=[f1_score])
 
     return model
@@ -168,9 +149,6 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
         # evaluate performance on validation data
         Yi_hat = deploy_model(X_valid, model)
-        #Xi, Yi = random_crop([X_valid, Y_valid], sz)
-        #Yi_hat = model.predict(Xi)
-        #np.savez('valid_epoch%04d' % ii, X=Xi, Y=Yi, Y_hat=Yi_hat, s=score_all)
         np.savez('valid_epoch%04d' % ii, X=X_valid, Y=Y_valid, Y_hat=Yi_hat, s=score_all)
 
         print('f1 on validation data:    %0.3f' % f1_score(Y_valid, Yi_hat))

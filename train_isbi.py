@@ -44,7 +44,7 @@ if __name__ == '__main__':
     Y_valid = Y_train[valid_slices,...]
     X_train = X_train[train_slices,...]
     Y_train = Y_train[train_slices,...]
-    
+ 
     print('[info]: training data has shape:     %s' % str(X_train.shape))
     print('[info]: training labels has shape:   %s' % str(Y_train.shape))
     print('[info]: validation data has shape:   %s' % str(X_valid.shape))
@@ -54,8 +54,9 @@ if __name__ == '__main__':
     # train model
     tic = time.time()
     model = create_unet((1, tile_size[0], tile_size[1]))
-    train_model(X_train, Y_train, X_valid, Y_valid, model, n_epochs=12)
+    train_model(X_train, Y_train, X_valid, Y_valid, model,
+                n_epochs=12, mb_size=30, n_mb_per_epoch=25)
 
-    print('[info]: total time to train model: %0.2f min' % (time.time() - tic)/60.)
+    print('[info]: total time to train model: %0.2f min' % ((time.time() - tic)/60.))
     
 
