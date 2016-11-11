@@ -44,10 +44,19 @@ def f1_score(y_true, y_hat):
     """
     y_true_flat = y_true.flatten()
     y_hat_flat = y_hat.flatten()
-    
-    intersection = np.sum(y_hat_flat * y_true_flat) 
-    precision = intersection / np.sum(y_hat_flat)
-    recall = intersection / np.sum(y_true_flat)
+
+    try:
+        # default is to assume a Keras object
+        y_true_flat = K.flatten(y_true)
+        y_hat_flat = K.flatten(y_hat)
+-    
+-       intersection = K.sum(y_hat_flat * y_true_flat) 
+-       precision = intersection / K.sum(y_hat_flat)
+-       recall = intersection / K.sum(y_true_flat)
+    except:
+        intersection = np.sum(y_hat_flat * y_true_flat)
+        precision = intersection / np.sum(y_hat_flat)
+        recall = intersection / np.sum(y_true_flat)
 
     return 2 * precision * recall / (precision + recall) 
 
