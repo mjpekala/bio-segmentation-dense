@@ -82,11 +82,14 @@ def create_unet(sz):
            Image Segmentation." 2015. 
         2. https://github.com/jocicmarko/ultrasound-nerve-segmentation/blob/master/train.py
     """
+    
     assert(len(sz) == 3)
-    bm = 'same'
+    if (not np.mod(sz[0], 16) == 0) or (not np.mod(sz[1], 16) == 0):
+        raise ValueError('This network assumes the input image dimensions are multiple of 2^4')
 
     # NOTES:
     #   o possibly change Deconvolution2D to UpSampling2D
+    bm = 'same'
     
     inputs = Input(sz)
     conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode=bm)(inputs)
