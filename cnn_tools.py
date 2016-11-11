@@ -84,7 +84,7 @@ def create_unet(sz):
     """
     
     assert(len(sz) == 3)
-    if (not np.mod(sz[0], 16) == 0) or (not np.mod(sz[1], 16) == 0):
+    if not np.all(np.mod(sz[1:], 16) == 0):
         raise ValueError('This network assumes the input image dimensions are multiple of 2^4')
 
     # NOTES:
