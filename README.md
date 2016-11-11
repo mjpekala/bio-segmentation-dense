@@ -5,6 +5,22 @@ Some codes for segmenting images via per-pixel (or dense) classification.  The c
 
 **Note: this code is under construction and subject to change.  Use at your own risk! ** 
 
+## Quick Start
+
+### Dimension Ordering
+
+Note that this code makes explicit assumptions about the order of data dimensions (we expect tensors with shape (n_examples, n_channels, n_rows, n_cols)).  If you experience ugly-looking errors from underlying Thenao codes you may want to make sure that the Keras dimension ordering is set to "th"; e.g here is my keras.json:
+
+```
+{
+    "image_dim_ordering": "th",
+    "epsilon": 1e-07,
+    "floatx": "float32",
+    "backend": "theano"
+}
+```
+
+
 ## References:
 
 1.  Long, Shelhamer, Darrell "Fully Convolutional Networks for Semantic Segmentation." CVPR 2015.
