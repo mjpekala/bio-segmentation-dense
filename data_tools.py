@@ -37,7 +37,7 @@ def load_multilayer_tiff(data_file):
     # load the data from multi-layer TIF files
     img = Image.open(data_file)
     X = [];
-    for ii in xrange(sys.maxint):
+    for ii in range(10000):
         Xi = np.array(img, dtype=np.float32)
         if Xi.ndim == 2:
             Xi = Xi[np.newaxis, ...] # add slice dimension
