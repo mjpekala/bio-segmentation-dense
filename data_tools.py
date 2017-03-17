@@ -156,8 +156,8 @@ def random_crop(tensors, sz):
         r,c = tensors.shape[-2:]
 
     # choose an upper-left corner for the crop
-    ri = _my_randint(low=0, high=r-sz[0]-1)
-    ci = _my_randint(low=0, high=c-sz[1]-1)
+    ri = _my_randint(low=0, high=r-sz[0])
+    ci = _my_randint(low=0, high=c-sz[1])
 
     # extract subset
     if multi_crop:
