@@ -31,8 +31,11 @@ if __name__ == '__main__':
     # load raw data
     X, Y = oct.load_oct_sample_data('annotated.mat')
 
+    # XXX: for now, "binarize" the data
     Y = (Y > 0).astype(np.uint32)
-    print(Y.shape, Y.dtype, np.unique(Y))
+
+    # some info regarding the class labels
+    print(Y.shape, Y.dtype, np.unique(Y), 1.0*np.sum(Y==0)/Y.size)
 
     # split into train and valid
     X_train = X[0,...];  X_train = X_train[np.newaxis, ...]
@@ -47,10 +50,8 @@ if __name__ == '__main__':
     # train model
     tic = time.time()
     model = create_unet((1, tile_size[0], tile_size[1]))
-    #train_model(X_train, Y_train, X_valid, Y_valid, model,
-    #            n_epochs=12, mb_size=8, n_mb_per_epoch=25, xform=False)
     train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=1, mb_size=4, n_mb_per_epoch=5, xform=False)
+                n_epochs=8, mb_size=5, n_mb_per_epoch=25, xform=False)
 
     print('[info]: total time to train model: %0.2f min' % ((time.time() - tic)/60.))
 
