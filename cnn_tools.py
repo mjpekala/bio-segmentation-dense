@@ -71,6 +71,8 @@ def pixelwise_crossentropy_loss(y_true, y_hat, w=None):
     return K.mean(ce)
 
 
+# TODO: loss function for multiple classes!!!
+
 
 def create_unet(sz):
     """
