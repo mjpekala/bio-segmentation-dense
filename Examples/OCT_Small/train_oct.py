@@ -37,7 +37,8 @@ if __name__ == '__main__':
     # some info regarding the class labels
     print(Y.shape, Y.dtype, np.unique(Y), 1.0*np.sum(Y==0)/Y.size)
 
-    # split into train and valid
+    # split into train and valid.
+    # obviously we would like more training data moving forward...
     X_train = X[0,...];  X_train = X_train[np.newaxis, ...]
     Y_train = Y[0,...];  Y_train = Y_train[np.newaxis, ...]
 
