@@ -5,9 +5,14 @@ REFERENCES:
    [Shen] "Tools for NIfTI and ANALYZE image", https://www.mathworks.com/matlabcentral/fileexchange/8797-tools-for-nifti-and-analyze-image
 """
 
+from __future__ import print_function
+
+__author__ = 'mjp, March 2017'
+__license__ = 'Apache 2.0'
 
 import numpy as np
 import h5py
+
 
 
 def load_oct_sample_data(h5_fn):
@@ -44,4 +49,4 @@ def load_oct_sample_data(h5_fn):
     # normalize
     X = X / 255.
 
-    return X, Y
+    return X, Y.astype(np.uint32)
