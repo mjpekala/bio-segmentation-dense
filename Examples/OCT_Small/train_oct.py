@@ -34,6 +34,10 @@ if __name__ == '__main__':
     # XXX: for now, "binarize" the data
     Y = (Y > 0).astype(np.uint32)
 
+    # XXX: also, discard the edges for now
+    #      (unclear if annotations extend to edges
+    Y = Y[:,:,:,20:-20]
+
     # some info regarding the class labels
     print(Y.shape, Y.dtype, np.unique(Y), 1.0*np.sum(Y==0)/Y.size)
 
@@ -52,7 +56,7 @@ if __name__ == '__main__':
     tic = time.time()
     model = create_unet((1, tile_size[0], tile_size[1]))
     train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=8, mb_size=5, n_mb_per_epoch=25, xform=False)
+                n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
 
     print('[info]: total time to train model: %0.2f min' % ((time.time() - tic)/60.))
 
