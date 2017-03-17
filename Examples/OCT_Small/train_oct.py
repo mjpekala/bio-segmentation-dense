@@ -36,7 +36,8 @@ if __name__ == '__main__':
 
     # XXX: also, discard the edges for now
     #      (unclear if annotations extend to edges
-    Y = Y[:,:,:,20:-20]
+    X = X[:,:,:,20:-20]
+    Y = Y[:,:,20:-20]
 
     # some info regarding the class labels
     print(Y.shape, Y.dtype, np.unique(Y), 1.0*np.sum(Y==0)/Y.size)
