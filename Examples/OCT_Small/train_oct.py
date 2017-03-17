@@ -26,25 +26,30 @@ import oct
 
 if __name__ == '__main__':
     K.set_image_dim_ordering('th')
+    tile_size = (256, 256)
 
     # load raw data
     X, Y = oct.load_oct_sample_data('annotated.mat')
-    tile_size = X.shape[1:]
 
     print(np.unique(Y))
 
     # split into train and valid
-    X_train = X[0,...];  X_train = X_train[np.newaxis, np.newaxis, ...]
+    X_train = X[0,...];  X_train = X_train[np.newaxis, ...]
     Y_train = Y[0,...];  Y_train = Y_train[np.newaxis, ...]
 
-    X_valid = X[1,...];  X_valid = X_valid[np.newaxis, np.newaxis, ...]
+    X_valid = X[1,...];  X_valid = X_valid[np.newaxis, ...]
     Y_valid = Y[1,...];  Y_valid = Y_valid[np.newaxis, ...]
+
+    print('X train size: %s' % str(X_train.shape))
+    print('Y train size: %s' % str(Y_train.shape))
  
     # train model
     tic = time.time()
     model = create_unet((1, tile_size[0], tile_size[1]))
+    #train_model(X_train, Y_train, X_valid, Y_valid, model,
+    #            n_epochs=12, mb_size=8, n_mb_per_epoch=25, xform=False)
     train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=12, mb_size=1, n_mb_per_epoch=25, xform=False)
+                n_epochs=1, mb_size=4, n_mb_per_epoch=5, xform=False)
 
     print('[info]: total time to train model: %0.2f min' % ((time.time() - tic)/60.))
     
