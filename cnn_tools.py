@@ -139,7 +139,7 @@ def create_unet(sz):
 
 
 def train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=30, n_mb_per_epoch=25, mb_size=30):
+                n_epochs=30, n_mb_per_epoch=25, mb_size=30, xform=True):
     """
     Note: these are not epochs in the usual sense, since we randomly sample
     the data set (vs methodically marching through it)                
@@ -148,10 +148,10 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     score_all = []
 
     for ii in range(n_epochs):
-        print('starting "epoch" %d (of %d)' % (ii, n_epochs))
+        print('[train_model]: starting "epoch" %d (of %d)' % (ii, n_epochs))
 
         for jj in timed_collection(range(n_mb_per_epoch)):
-            Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz=sz)
+            Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz, xform)
             loss, f1 = model.train_on_batch(Xi, Yi)
             score_all.append(f1)
 
@@ -163,9 +163,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         Yi_hat = deploy_model(X_valid, model)
         np.savez('valid_epoch%04d' % ii, X=X_valid, Y=Y_valid, Y_hat=Yi_hat, s=score_all)
 
-        print('f1 on validation data:    %0.3f' % f1_score(Y_valid, Yi_hat))
-        print('recent train performance: %0.3f' % np.mean(score_all[-20:]))
-        print('y_hat min, max, mean:     %0.2f / %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat), np.mean(Yi_hat)))
+        print('[train_model]: f1 on validation data:    %0.3f' % f1_score(Y_valid, Yi_hat))
+        print('[train_model]: recent train performance: %0.3f' % np.mean(score_all[-20:]))
+        print('[train_model]: y_hat min, max, mean:     %0.2f / %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat), np.mean(Yi_hat)))
         
     return score_all
 
