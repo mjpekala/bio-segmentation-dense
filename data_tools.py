@@ -9,8 +9,9 @@ __license__ = 'Apache 2.0'
 
 
 import os, sys
-import numpy as np
 from functools import partial
+import numpy as np
+
 import pdb
 
 from PIL import Image
@@ -69,7 +70,7 @@ def load_multilayer_tiff(data_file):
 
 #-------------------------------------------------------------------------------
 
-def random_minibatch(X, Y, num_in_batch, sz=(256,256)):
+def random_minibatch(X, Y, num_in_batch, sz, xform):
     """ Creates a single minibatch of training data by randomly sampling
     subsets of the training data (X, Y).
 
@@ -87,21 +88,23 @@ def random_minibatch(X, Y, num_in_batch, sz=(256,256)):
     n,d,r,c = X.shape
 
     # preallocate memory for result
-    X_mb = np.zeros((num_in_batch, X.shape[1], sz[0], sz[0]), dtype=np.float32)
-    Y_mb = np.zeros((num_in_batch, Y.shape[1], sz[0], sz[0]), dtype=np.float32)
+    X_mb = np.zeros((num_in_batch, d, sz[0], sz[1]), dtype=np.float32)
+    Y_mb = np.zeros((num_in_batch, d, sz[0], sz[1]), dtype=np.float32)
 
     for ii in range(num_in_batch):
         # grab a random slice
         ni = _my_randint(low=0, high=n-1)
         Xi = X[ni,...];   Yi = Y[ni, ...]
         
-        # grab a random tile of size sz
-        if np.any(sz < Xi.shape):
+        # grab a random subset of the slice (of size sz);
+        # i.e. a "tile"
+        if sz[0] < r or sz[1] < c:
             Xi, Yi = random_crop([Xi, Yi], sz)
 
-        # warp/transform        
-        Xi, Yi = apply_symmetry([Xi, Yi])
-        #Xi,Yi = apply_warping(Xi, Yi)
+        # warp/transform
+        if xform:
+            Xi, Yi = apply_symmetry([Xi, Yi])
+            #Xi,Yi = apply_warping(Xi, Yi)
 
         X_mb[ii,...] = Xi
         Y_mb[ii,...] = Yi
@@ -200,7 +203,7 @@ def apply_symmetry(tensors, op_idx=-1):
         return X[..., ::-1]
 
     def D1(X):
-        sz = range(X.ndim)
+        sz = np.arange(X.ndim)
         sz[-2], sz[-1] = sz[-1], sz[-2]
         return np.transpose(X, sz)
 
