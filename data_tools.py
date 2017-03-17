@@ -147,7 +147,9 @@ def random_crop(tensors, sz):
        sz      := a tuple (n_rows, n_cols) specifing the size of the crop
     """
 
-    if isinstance(tensors, list):
+    multi_crop = isinstance(tensors, list) or isinstance(tensors, tuple)
+
+    if multi_crop:
         r,c = tensors[0].shape[-2:]
     else:
         # caller provided a single tensor (rather than a list)
@@ -158,7 +160,7 @@ def random_crop(tensors, sz):
     ci = _my_randint(low=0, high=c-sz[1]-1)
 
     # extract subset
-    if isinstance(tensors, list):
+    if multi_crop:
         return [ X[..., ri:ri+sz[0], ci:ci+sz[1]] for X in tensors]
     else:
         X = tensors
