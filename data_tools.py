@@ -11,11 +11,21 @@ __license__ = 'Apache 2.0'
 import os, sys
 import numpy as np
 from functools import partial
+import pdb
 
 from PIL import Image
 import pylab as plt
 from scipy.interpolate import griddata
 
+
+
+def _my_randint(low, high):
+    if low < high:
+        return np.random.randint(low=low, high=high)
+    elif low == high:
+        return low
+    else:
+        raise ValueError('low cannot be > high')
 
 
 
@@ -82,11 +92,12 @@ def random_minibatch(X, Y, num_in_batch, sz=(256,256)):
 
     for ii in range(num_in_batch):
         # grab a random slice
-        ni = np.random.randint(low=0, high=n-1)
+        ni = _my_randint(low=0, high=n-1)
         Xi = X[ni,...];   Yi = Y[ni, ...]
         
         # grab a random tile of size sz
-        Xi, Yi = random_crop([Xi, Yi], sz)
+        if np.any(sz < Xi.shape):
+            Xi, Yi = random_crop([Xi, Yi], sz)
 
         # warp/transform        
         Xi, Yi = apply_symmetry([Xi, Yi])
@@ -140,8 +151,8 @@ def random_crop(tensors, sz):
         r,c = tensors.shape[-2:]
 
     # choose an upper-left corner for the crop
-    ri = np.random.randint(low=0, high=r-sz[0]-1)
-    ci = np.random.randint(low=0, high=c-sz[1]-1)
+    ri = _my_randint(low=0, high=r-sz[0]-1)
+    ci = _my_randint(low=0, high=c-sz[1]-1)
 
     # extract subset
     if isinstance(tensors, list):
