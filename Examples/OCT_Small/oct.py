@@ -27,15 +27,6 @@ def load_oct_sample_data(h5_fn):
     x_70 = h5['x_70'].value.T
     y_70 = h5['y_70'].value.T
 
-    # crop so we have a square image whose dimension is a power of 2.
-    # The upper and lower y extremes aren't that interesting anyway
-    delta = int((x_60.shape[0]-512)/2)
-
-    x_60 = x_60[delta:-delta, :]
-    y_60 = y_60[delta:-delta, :]
-    x_70 = x_70[delta:-delta, :]
-    y_70 = y_70[delta:-delta, :]
-
     # pack into tensors
     def to_tensor(*args):
         X = np.zeros((len(args), args[0].shape[0], args[0].shape[1]))
@@ -48,5 +39,8 @@ def load_oct_sample_data(h5_fn):
 
     # normalize
     X = X / 255.
+
+    # add a color channel dimension
+    X = X[:, np.newaxis, :, :]
 
     return X, Y.astype(np.uint32)
