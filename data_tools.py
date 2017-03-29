@@ -84,7 +84,7 @@ def pixelwise_one_hot(Y):
     """
     assert(Y.shape[1] == 1)
     n_classes = np.max(Y) + 1
-    Y_onehot = np.zeros((Y.shape[0], n_classes, Y.shape[2], Y.shape[3]), dtype=np.uint32)
+    Y_onehot = np.zeros((Y.shape[0], n_classes, Y.shape[2], Y.shape[3]), dtype=np.bool)
     for yi in np.arange(n_classes):
         Y_onehot[:,yi,:,:] = np.squeeze(Y == yi)
     return Y_onehot
