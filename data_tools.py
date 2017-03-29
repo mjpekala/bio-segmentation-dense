@@ -70,6 +70,27 @@ def load_multilayer_tiff(data_file):
 
 #-------------------------------------------------------------------------------
 
+
+def pixelwise_one_hot(Y):
+    """  Given a tensor of class labels with the shape:
+
+        (#_examples, 1, #_rows, #_cols)
+
+    returns a new tensor with dimensions
+
+        (#_examples, #_classes, #_rows, #_cols)
+
+
+    """
+    assert(Y.shape[1] == 1)
+    n_classes = np.max(Y) + 1
+    Y_onehot = np.zeros((Y.shape[0], n_classes, Y.shape[2], Y.shape[3]), dtype=np.uint32)
+    for yi in np.arange(n_classes):
+        Y_onehot[:,yi,:,:] = np.squeeze(Y == yi)
+    return Y_onehot
+
+
+    
 def random_minibatch(X, Y, num_in_batch, sz, xform):
     """ Creates a single minibatch of training data by randomly sampling
     subsets of the training data (X, Y).
