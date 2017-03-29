@@ -21,6 +21,9 @@ from keras import backend as K
 
 from data_tools import *
 
+import sklearn.metrics as skm
+
+
 import pdb
 
 
@@ -42,22 +45,26 @@ def timed_collection(c, rate=60*2):
 
 def f1_score(y_true, y_hat):
     """ 
-    """
-    y_true_flat = y_true.flatten()
-    y_hat_flat = y_hat.flatten()
+    Note: This is designed for *binary* classification problems.
+          We implicitly assume y_true, y_hat have shape:
 
-    try:
-        # default is to assume a Keras object
-        y_true_flat = K.flatten(y_true)
-        y_hat_flat = K.flatten(y_hat)
-     
-        intersection = K.sum(y_hat_flat * y_true_flat) 
-        precision = intersection / K.sum(y_hat_flat)
-        recall = intersection / K.sum(y_true_flat)
-    except:
-        intersection = np.sum(y_hat_flat * y_true_flat)
-        precision = intersection / np.sum(y_hat_flat)
-        recall = intersection / np.sum(y_true_flat)
+               (#_examples, 2, #_rows, #_cols)
+
+          which arose from a 1-hot encoding the input tensor that had values 
+          in the set {0,1}. 
+    """
+
+    #y_true_flat = K.flatten(K.argmax(y_true,axis=1))
+    #y_hat_flat = K.flatten(K.argmax(y_hat,axis=1))
+    y_true_flat = K.flatten(y_true[:,1,:,:])
+    y_hat_flat = K.flatten(y_hat[:,1,:,:])
+
+    true_pos = K.sum(y_hat_flat * y_true_flat)
+    pred_pos = K.sum(y_hat_flat) + 1e-9
+    is_pos = K.sum(y_true_flat) + 1e-9
+
+    precision = true_pos / pred_pos
+    recall = true_pos / is_pos
 
     return 2 * precision * recall / (precision + recall) 
 
@@ -138,7 +145,8 @@ def create_unet(sz, n_classes=2):
     conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(up9)
     conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(conv9)
 
-    conv10 = Conv2D(1, (1, 1), activation='sigmoid')(conv9)
+    #conv10 = Conv2D(1, (1, 1), activation='sigmoid')(conv9)
+    conv10 = Conv2D(n_classes, (1, 1), activation='sigmoid')(conv9)
 
     model = Model(inputs=inputs, outputs=conv10)
 
@@ -162,6 +170,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
         for jj in timed_collection(range(n_mb_per_epoch)):
             Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz, xform)
+            Yi = pixelwise_one_hot(Yi) # TEMP TEMP TEMP
             loss, f1 = model.train_on_batch(Xi, Yi)
             score_all.append(f1)
 
@@ -173,7 +182,8 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         Yi_hat = deploy_model(X_valid, model)
         np.savez('valid_epoch%04d' % ii, X=X_valid, Y=Y_valid, Y_hat=Yi_hat, s=score_all)
 
-        print('[train_model]: f1 on validation data:    %0.3f' % f1_score(Y_valid, Yi_hat))
+        if len(np.unique(Y.flatten())) == 2:
+            print('[train_model]: f1 on validation data:    %0.3f' % skm.f1_score(Y_valid.flatten(), Yi_hat[:,1,:,:].flatten()))
         print('[train_model]: recent train performance: %0.3f' % np.mean(score_all[-20:]))
         print('[train_model]: y_hat min, max, mean:     %0.2f / %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat), np.mean(Yi_hat)))
         
@@ -191,7 +201,7 @@ def deploy_model(X, model):
     # not be a multiple of the tile size.
     sz = model.input_shape[-2:]
 
-    Y_hat = np.zeros(X.shape)
+    Y_hat = None
 
     for rr in range(0, X.shape[-2], sz[0]):
         ra = rr if rr+sz[0] < X.shape[-2] else X.shape[-2] - sz[0]
@@ -199,6 +209,12 @@ def deploy_model(X, model):
         for cc in range(0, X.shape[-1], sz[1]):
             ca = cc if cc+sz[1] < X.shape[-1] else X.shape[-1] - sz[-1]
             cb = ca+sz[1]
-            Y_hat[:,:,ra:rb,ca:cb] = model.predict(X[:, :, ra:rb, ca:cb])
+            Y_hat_mb = model.predict(X[:, :, ra:rb, ca:cb])
+
+            # create Y_hat once we know the # of classes
+            if Y_hat is None:
+                Y_hat = np.zeros((X.shape[0], Y_hat_mb.shape[1], X.shape[2], X.shape[3]), dtype=Y_hat_mb.dtype)
+
+            Y_hat[:,:,ra:rb,ca:cb] = Y_hat_mb
 
     return Y_hat    
