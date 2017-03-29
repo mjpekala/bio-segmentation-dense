@@ -18,6 +18,7 @@ np.random.seed(9999)
 
 from keras import backend as K
 
+sys.path.append('../..')
 from cnn_tools import *
 from data_tools import *
 
