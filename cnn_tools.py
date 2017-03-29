@@ -14,13 +14,14 @@ import time
 import numpy as np
 
 from keras.models import Model
-from keras.layers import Input, merge, Convolution2D, MaxPooling2D, UpSampling2D, Dropout
+from keras.layers import Input, merge, Conv2D, MaxPooling2D, UpSampling2D, Dropout
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as K
 
 from data_tools import *
 
+import pdb
 
 
 def timed_collection(c, rate=60*2):
@@ -63,7 +64,9 @@ def f1_score(y_true, y_hat):
 
 
 
-def pixelwise_crossentropy_loss(y_true, y_hat, w=None):
+def pixelwise_binomial_ace_loss(y_true, y_hat, w=None):
+    """ Pixel-wise average crossentropy loss (ACE) for binary classification problems.
+    """
     y_hat += 1e-8   # avoid issues with log
     ce = -y_true * K.log(y_hat) - (1. - y_true) * K.log(1 - y_hat)
     if w is not None:
@@ -71,10 +74,13 @@ def pixelwise_crossentropy_loss(y_true, y_hat, w=None):
     return K.mean(ce)
 
 
-# TODO: loss function for multiple classes!!!
+
+def pixelwise_multinomial_ace_loss(y_true, y_hat):
+    pass  # TODO
 
 
-def create_unet(sz):
+
+def create_unet(sz, n_classes=2):
     """
       sz : a tuple specifying the input image size in the form:
            (# channels, # rows, # columns)
@@ -91,50 +97,52 @@ def create_unet(sz):
 
     # NOTES:
     #   o possibly change Deconvolution2D to UpSampling2D
+    #   o updated to Keras 2.0.x API (march 2017)
+    #
     bm = 'same'
     
     inputs = Input(sz)
-    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode=bm)(inputs)
-    conv1 = Convolution2D(32, 3, 3, activation='relu', border_mode=bm)(conv1)
+    conv1 = Conv2D(32, (3, 3), activation='relu', padding=bm)(inputs)
+    conv1 = Conv2D(32, (3, 3), activation='relu', padding=bm)(conv1)
     pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
 
-    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode=bm)(pool1)
-    conv2 = Convolution2D(64, 3, 3, activation='relu', border_mode=bm)(conv2)
+    conv2 = Conv2D(64, (3, 3), activation='relu', padding=bm)(pool1)
+    conv2 = Conv2D(64, (3, 3), activation='relu', padding=bm)(conv2)
     pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
 
-    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode=bm)(pool2)
-    conv3 = Convolution2D(128, 3, 3, activation='relu', border_mode=bm)(conv3)
+    conv3 = Conv2D(128, (3, 3), activation='relu', padding=bm)(pool2)
+    conv3 = Conv2D(128, (3, 3), activation='relu', padding=bm)(conv3)
     pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
 
-    conv4 = Convolution2D(256, 3, 3, activation='relu', border_mode=bm)(pool3)
-    conv4 = Convolution2D(256, 3, 3, activation='relu', border_mode=bm)(conv4)
+    conv4 = Conv2D(256, (3, 3), activation='relu', padding=bm)(pool3)
+    conv4 = Conv2D(256, (3, 3), activation='relu', padding=bm)(conv4)
     conv4 = Dropout(.5)(conv4) # mjp
     pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
 
-    conv5 = Convolution2D(512, 3, 3, activation='relu', border_mode=bm)(pool4)
-    conv5 = Convolution2D(512, 3, 3, activation='relu', border_mode=bm)(conv5)
+    conv5 = Conv2D(512, (3, 3), activation='relu', padding=bm)(pool4)
+    conv5 = Conv2D(512, (3, 3), activation='relu', padding=bm)(conv5)
 
     up6 = merge([UpSampling2D(size=(2, 2))(conv5), conv4], mode='concat', concat_axis=1)
-    conv6 = Convolution2D(256, 3, 3, activation='relu', border_mode=bm)(up6)
-    conv6 = Convolution2D(256, 3, 3, activation='relu', border_mode=bm)(conv6)
+    conv6 = Conv2D(256, (3, 3), activation='relu', padding=bm)(up6)
+    conv6 = Conv2D(256, (3, 3), activation='relu', padding=bm)(conv6)
 
     up7 = merge([UpSampling2D(size=(2, 2))(conv6), conv3], mode='concat', concat_axis=1)
-    conv7 = Convolution2D(128, 3, 3, activation='relu', border_mode=bm)(up7)
-    conv7 = Convolution2D(128, 3, 3, activation='relu', border_mode=bm)(conv7)
+    conv7 = Conv2D(128, (3, 3), activation='relu', padding=bm)(up7)
+    conv7 = Conv2D(128, (3, 3), activation='relu', padding=bm)(conv7)
 
     up8 = merge([UpSampling2D(size=(2, 2))(conv7), conv2], mode='concat', concat_axis=1)
-    conv8 = Convolution2D(64, 3, 3, activation='relu', border_mode=bm)(up8)
-    conv8 = Convolution2D(64, 3, 3, activation='relu', border_mode=bm)(conv8)
+    conv8 = Conv2D(64, (3, 3), activation='relu', padding=bm)(up8)
+    conv8 = Conv2D(64, (3, 3), activation='relu', padding=bm)(conv8)
 
     up9 = merge([UpSampling2D(size=(2, 2))(conv8), conv1], mode='concat', concat_axis=1)
-    conv9 = Convolution2D(32, 3, 3, activation='relu', border_mode=bm)(up9)
-    conv9 = Convolution2D(32, 3, 3, activation='relu', border_mode=bm)(conv9)
+    conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(up9)
+    conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(conv9)
 
-    conv10 = Convolution2D(1, 1, 1, activation='sigmoid')(conv9)
+    conv10 = Conv2D(1, (1, 1), activation='sigmoid')(conv9)
 
     model = Model(input=inputs, output=conv10)
 
-    model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_crossentropy_loss, metrics=[f1_score])
+    model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_binomial_ace_loss, metrics=[f1_score])
 
     return model
 
