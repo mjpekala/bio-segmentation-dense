@@ -30,20 +30,26 @@ if __name__ == '__main__':
 
     # load raw data
     X, Y = oct.load_oct_sample_data('annotated.mat')
+    Y = Y[:, np.newaxis, :, :]  # add a "channel" dimension
 
-    # XXX: for now, "binarize" the data
-    Y = (Y > 0).astype(np.uint32)
+    # (optional) "binarize" the data
+    if False:
+        Y = (Y > 0).astype(np.uint32)
+
+    n_classes = len(np.unique(Y))
+    print('Y native shape:   ', Y.shape)
+    print('class labels:     ', str(np.unique(Y)))
+    print('one-hot shape:    ', pixelwise_one_hot(Y).shape)
+    for yi in range(n_classes):
+        print(' class %d fraction: %0.3f' % (yi, 1.*np.sum(Y==yi)/Y.size))
 
     # XXX: also, discard the edges for now
     #      (unclear if annotations extend to edges
-    X = X[:,:,:,20:-20]
-    Y = Y[:,:,20:-20]
-
-    # some info regarding the class labels
-    print(Y.shape, Y.dtype, np.unique(Y), 1.0*np.sum(Y==0)/Y.size)
+    X = X[...,20:-20]
+    Y = Y[...,20:-20]
 
     # split into train and valid.
-    # obviously we would like more training data moving forward...
+    # obviously we would prefer more data in the future...
     X_train = X[0,...];  X_train = X_train[np.newaxis, ...]
     Y_train = Y[0,...];  Y_train = Y_train[np.newaxis, ...]
 
@@ -55,7 +61,7 @@ if __name__ == '__main__':
  
     # train model
     tic = time.time()
-    model = create_unet((1, tile_size[0], tile_size[1]))
+    model = create_unet((1, tile_size[0], tile_size[1]), n_classes)
     train_model(X_train, Y_train, X_valid, Y_valid, model,
                 n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
 
