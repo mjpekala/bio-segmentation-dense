@@ -1,5 +1,26 @@
 """
-Implements semantic segmentation for convnets using Keras.
+  Implements semantic segmentation (dense classification) using Keras.
+
+
+  Conventions:
+   o I implicitly assume 'th' ordering throughout; that is, I expect objects to
+     have the shape:
+
+           (#_objects, #_channels, #_rows, #_cols)
+
+     Since our examples so far have all been grayscale I typically assume #_channels
+     is 1.  For RGB or other multi-channel data, you may need to make some fixes.
+
+   o To support multi-class problems, I expect (per-pixel) class labels to be contiguous
+     integers in  0,...,n_classes  and for the class label tensor to have the shape
+
+           (#_objects, 1, #_rows, #_cols)
+
+     Internally we will expand Y into a one-hot encoding 
+
+           (#_objects, #_classes, #_rows, #_cols)
+
+    o I have only tried using this with Theano as the backend.
 """
 
 
@@ -24,20 +45,19 @@ from data_tools import *
 import sklearn.metrics as skm
 
 
-import pdb
 
 
-def timed_collection(c, rate=60*2):
-    """ Provides status on progress as one iterates through a collection.
+def print_generator(c, every_n_secs=60*2):
+    """ Generator over a collection c that provides progress information (to stdout)
     """
     start_time = time.time()
-    last_chatter = -rate
+    last_chatter = -every_n_secs
 
     for idx, ci in enumerate(c):
         yield ci
         
         elapsed = time.time() - start_time
-        if (elapsed) > last_chatter + rate:
+        if (elapsed) > last_chatter + every_n_secs:
             last_chatter = elapsed
             print('processed %d items in %0.2f minutes' % (idx+1, elapsed/60.))
 
@@ -145,6 +165,7 @@ def create_unet(sz, n_classes=2):
     conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(up9)
     conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(conv9)
 
+    # mjp: changed layer below for multinomial case
     #conv10 = Conv2D(1, (1, 1), activation='sigmoid')(conv9)
     conv10 = Conv2D(n_classes, (1, 1), activation='sigmoid')(conv9)
 
@@ -168,7 +189,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     for ii in range(n_epochs):
         print('[train_model]: starting "epoch" %d (of %d)' % (ii, n_epochs))
 
-        for jj in timed_collection(range(n_mb_per_epoch)):
+        for jj in print_generator(range(n_mb_per_epoch)):
             Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz, xform)
             Yi = pixelwise_one_hot(Yi) # TEMP TEMP TEMP
             loss, f1 = model.train_on_batch(Xi, Yi)
