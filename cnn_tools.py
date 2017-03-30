@@ -71,24 +71,18 @@ def f1_score(y_true, y_hat):
 
 
 
-def pixelwise_binomial_ace_loss(y_true, y_hat, w=None):
-    """ Pixel-wise average crossentropy loss (ACE) for binary classification problems.
+def pixelwise_ace_loss(y_true, y_hat, w=None):
+    """ Pixel-wise average crossentropy loss (ACE).
+    This should work for both binomial and multinomial cases.
+
+        y_true :  True class labels in one-hot encoding; shape is:
+                     (#_examples, #_classes, #_rows, #_cols)
+
+        y_hat  :  Estimated class labels; same shape as y_true
     """
-    y_hat += 1e-8   # avoid issues with log
-    ce = -y_true * K.log(y_hat) - (1. - y_true) * K.log(1 - y_hat)
+    loss = -y_true * K.log(y_hat) - (1. - y_true) * K.log(1. - y_hat)
     if w is not None:
         ce *= w
-    return K.mean(ce)
-
-
-
-def pixelwise_multinomial_ace_loss(y_true, y_hat):
-    # ** This code relies on y_true being a one-hot encoding **
-    #
-    # The product "selects" the appropriate element of y_hat
-    # and the sum flattens away the irrelevant class dimensions
-    # so that the subsequent mean is over the desired values.
-    loss = - K.sum(y_true * K.log(y_hat), axis=1)
     return K.mean(loss)
 
 
@@ -156,7 +150,7 @@ def create_unet(sz, n_classes=2):
 
     model = Model(inputs=inputs, outputs=conv10)
 
-    model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_binomial_ace_loss, metrics=[f1_score])
+    model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_ace_loss, metrics=[f1_score])
 
     return model
 
