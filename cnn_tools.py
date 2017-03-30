@@ -229,8 +229,8 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
             pred = (Yi_hat[:,1,:,:].flatten() >= 0.5).astype(np.int32)
             print('[train_model]: f1 on validation data:    %0.3f' % skm.f1_score(Y_valid.flatten(), pred))
         print('[train_model]: recent train performance: %0.3f' % np.mean(score_all[-20:]))
-        print('[train_model]: y_hat min, max, mean:     %0.2f / %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat), np.mean(Yi_hat)))
-        
+        print('[train_model]: y_hat min, max, frac_0:   %0.2f / %0.2f / %0.3f' % (np.min(Yi_hat), np.max(Yi_hat), 1. * np.sum(Yi_hat[:,0,...]) / Yi_hat[:,0,...].size))
+
     return score_all
 
 
