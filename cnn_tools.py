@@ -35,7 +35,7 @@ import time
 import numpy as np
 
 from keras.models import Model
-from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, Dropout
+from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, Dropout, Lambda
 from keras.layers.merge import Concatenate
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
@@ -108,7 +108,7 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
 
 
 
-def create_unet(sz, n_classes=2):
+def create_unet(sz, n_classes=2, multi_label=False):
     """
       sz : a tuple specifying the input image size in the form:
            (# channels, # rows, # columns)
@@ -174,9 +174,22 @@ def create_unet(sz, n_classes=2):
     conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(up9)
     conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(conv9)
 
+    # At this point, "channels" becomes "class labels" (one label per channel)
+    #
     # mjp: changed layer below for multinomial case
     #conv10 = Conv2D(1, (1, 1), activation='sigmoid')(conv9)
-    conv10 = Conv2D(n_classes, (1, 1), activation='sigmoid')(conv9)
+
+    def custom_softmax(x):
+        # subtracting the max for numerical stability
+        e_x = K.exp(x - K.max(x, axis=1, keepdims=True))
+        softmax = e_x / K.sum(e_x, axis=1, keepdims=True)
+        return softmax
+
+    if multi_label: 
+        conv10 = Conv2D(n_classes, (1, 1), activation='sigmoid')(conv9)
+    else:
+        conv10 = Conv2D(n_classes, (1, 1))(conv9)
+        conv10 = Lambda(custom_softmax, output_shape=(n_classes,sz[1],sz[2]))(conv10)
 
     model = Model(inputs=inputs, outputs=conv10)
 
