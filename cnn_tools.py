@@ -191,7 +191,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
         for jj in print_generator(range(n_mb_per_epoch)):
             Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz, xform)
-            Yi = pixelwise_one_hot(Yi) # TEMP TEMP TEMP
+            Yi = pixelwise_one_hot(Yi) 
             loss, f1 = model.train_on_batch(Xi, Yi)
             score_all.append(f1)
 
@@ -217,13 +217,16 @@ def deploy_model(X, model):
     """
     X : a tensor of dimensions (n_examples, n_channels, n_rows, n_cols)
 
-    Note that n_examples will be used as the minibatch size.
+    Note: n_examples will be used as the minibatch size.
+
+    Note: we could be more sophisticated here and, instead of partitioning X,
+          calculate with some overlaps and average to mitigate edge effects.
     """
     # the only slight complication is that the spatial dimensions of X might
     # not be a multiple of the tile size.
     sz = model.input_shape[-2:]
 
-    Y_hat = None
+    Y_hat = None  # delay initialization until we know the # of classes
 
     for rr in range(0, X.shape[-2], sz[0]):
         ra = rr if rr+sz[0] < X.shape[-2] else X.shape[-2] - sz[0]
@@ -233,10 +236,11 @@ def deploy_model(X, model):
             cb = ca+sz[1]
             Y_hat_mb = model.predict(X[:, :, ra:rb, ca:cb])
 
-            # create Y_hat once we know the # of classes
+            # create Y_hat if needed
             if Y_hat is None:
                 Y_hat = np.zeros((X.shape[0], Y_hat_mb.shape[1], X.shape[2], X.shape[3]), dtype=Y_hat_mb.dtype)
 
+            # store this mini-batch
             Y_hat[:,:,ra:rb,ca:cb] = Y_hat_mb
 
     return Y_hat    
