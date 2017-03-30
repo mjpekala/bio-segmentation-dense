@@ -110,7 +110,7 @@ def random_minibatch(X, Y, num_in_batch, sz, xform):
 
     # preallocate memory for result
     X_mb = np.zeros((num_in_batch, d, sz[0], sz[1]), dtype=np.float32)
-    Y_mb = np.zeros((num_in_batch, d, sz[0], sz[1]), dtype=np.float32)
+    Y_mb = np.zeros((num_in_batch, 1, sz[0], sz[1]), dtype=np.float32)
 
     for ii in range(num_in_batch):
         # grab a random slice
