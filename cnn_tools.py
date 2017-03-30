@@ -83,7 +83,13 @@ def pixelwise_binomial_ace_loss(y_true, y_hat, w=None):
 
 
 def pixelwise_multinomial_ace_loss(y_true, y_hat):
-    pass  # TODO
+    # ** This code relies on y_true being a one-hot encoding **
+    #
+    # The product "selects" the appropriate element of y_hat
+    # and the sum flattens away the irrelevant class dimensions
+    # so that the subsequent mean is over the desired values.
+    loss = - K.sum(y_true * K.log(y_hat), axis=1)
+    return K.mean(loss)
 
 
 
