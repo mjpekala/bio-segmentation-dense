@@ -182,7 +182,9 @@ def create_unet(sz, n_classes=2, multi_label=False):
     def custom_softmax(x):
         # subtracting the max for numerical stability
         e_x = K.exp(x - K.max(x, axis=1, keepdims=True))
-        softmax = e_x / K.sum(e_x, axis=1, keepdims=True)
+        total = K.sum(e_x, axis=1, keepdims=True) + 1e-6
+        softmax = e_x / total
+        #softmax = e_x / (K.sum(e_x, axis=1, keepdims=True) + 1e-8)
         return softmax
 
     if multi_label: 
