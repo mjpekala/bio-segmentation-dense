@@ -8,7 +8,7 @@ Some codes for segmenting images via per-pixel (or dense) classification.  The c
 ## Quick Start
 
 - I am currently using Python 3 and Keras version 2.0.2 with Theano as the backend.
-- For training a U-Net, see [this example](./Examples/ISBI_2012/train.py)
+- For training a U-Net, see [this example](./Examples/ISBI_2012/train_isbi.py)
 - For deployment, see [this ipython notebook](./Examples/ISBI_2012/deploy_isbi.ipynb)
 
 
