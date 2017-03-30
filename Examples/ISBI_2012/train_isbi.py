@@ -16,6 +16,7 @@ import numpy as np
 
 np.random.seed(9999)
 
+import keras
 from keras import backend as K
 
 sys.path.append('../..')
@@ -45,7 +46,9 @@ if __name__ == '__main__':
     Y_valid = Y_train[valid_slices,...]
     X_train = X_train[train_slices,...]
     Y_train = Y_train[train_slices,...]
- 
+
+    print('[info]: using Keras version:         %s' % str(keras.__version__))
+    print('[info]: using backend:               %s' % str(K._BACKEND))
     print('[info]: training data has shape:     %s' % str(X_train.shape))
     print('[info]: training labels has shape:   %s' % str(Y_train.shape))
     print('[info]: validation data has shape:   %s' % str(X_valid.shape))
