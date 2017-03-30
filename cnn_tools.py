@@ -50,18 +50,18 @@ def f1_score(y_true, y_hat):
 
                (#_examples, 2, #_rows, #_cols)
 
-          which arose from a 1-hot encoding the input tensor that had values 
+          which arose from a 1-hot encoding the input tensor with values 
           in the set {0,1}. 
     """
 
-    #y_true_flat = K.flatten(K.argmax(y_true,axis=1))
-    #y_hat_flat = K.flatten(K.argmax(y_hat,axis=1))
+    # by convention, take slice 0 to be the negative class and slice 1 to
+    # be the positive class.
     y_true_flat = K.flatten(y_true[:,1,:,:])
     y_hat_flat = K.flatten(y_hat[:,1,:,:])
 
     true_pos = K.sum(y_hat_flat * y_true_flat)
-    pred_pos = K.sum(y_hat_flat) + 1e-9
-    is_pos = K.sum(y_true_flat) + 1e-9
+    pred_pos = K.sum(y_hat_flat) + 1e-9    # avoid possible divide-by-zero
+    is_pos = K.sum(y_true_flat) + 1e-9     #  "  "
 
     precision = true_pos / pred_pos
     recall = true_pos / is_pos
