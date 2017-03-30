@@ -35,7 +35,8 @@ import time
 import numpy as np
 
 from keras.models import Model
-from keras.layers import Input, merge, Conv2D, MaxPooling2D, UpSampling2D, Dropout
+from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, Dropout
+from keras.layers.merge import Concatenate
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as K
@@ -149,19 +150,27 @@ def create_unet(sz, n_classes=2):
     conv5 = Conv2D(512, (3, 3), activation='relu', padding=bm)(pool4)
     conv5 = Conv2D(512, (3, 3), activation='relu', padding=bm)(conv5)
 
-    up6 = merge([UpSampling2D(size=(2, 2))(conv5), conv4], mode='concat', concat_axis=1)
+    up6 = UpSampling2D(size=(2, 2))(conv5)
+    up6 = Concatenate(axis=1)([up6, conv4])
+    #up6 = merge([UpSampling2D(size=(2, 2))(conv5), conv4], mode='concat', concat_axis=1)
     conv6 = Conv2D(256, (3, 3), activation='relu', padding=bm)(up6)
     conv6 = Conv2D(256, (3, 3), activation='relu', padding=bm)(conv6)
 
-    up7 = merge([UpSampling2D(size=(2, 2))(conv6), conv3], mode='concat', concat_axis=1)
+    up7 = UpSampling2D(size=(2,2))(conv6)
+    up7 = Concatenate(axis=1)([up7, conv3])
+    #up7 = merge([UpSampling2D(size=(2, 2))(conv6), conv3], mode='concat', concat_axis=1)
     conv7 = Conv2D(128, (3, 3), activation='relu', padding=bm)(up7)
     conv7 = Conv2D(128, (3, 3), activation='relu', padding=bm)(conv7)
 
-    up8 = merge([UpSampling2D(size=(2, 2))(conv7), conv2], mode='concat', concat_axis=1)
+    up8 = UpSampling2D(size=(2,2))(conv7)
+    up8 = Concatenate(axis=1)([up8, conv2])
+    #up8 = merge([UpSampling2D(size=(2, 2))(conv7), conv2], mode='concat', concat_axis=1)
     conv8 = Conv2D(64, (3, 3), activation='relu', padding=bm)(up8)
     conv8 = Conv2D(64, (3, 3), activation='relu', padding=bm)(conv8)
 
-    up9 = merge([UpSampling2D(size=(2, 2))(conv8), conv1], mode='concat', concat_axis=1)
+    up9 = UpSampling2D(size=(2,2))(conv8)
+    up9 = Concatenate(axis=1)([up9, conv1])
+    #up9 = merge([UpSampling2D(size=(2, 2))(conv8), conv1], mode='concat', concat_axis=1)
     conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(up9)
     conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(conv9)
 
