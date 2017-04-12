@@ -7,13 +7,13 @@ Some codes for segmenting images via per-pixel (or dense) classification.  The c
 ## Quick Start
 
 - I am currently using Python 3 and Keras version 2.0.2 with Theano as the backend.
-- For training a U-Net, see [this example](./Examples/ISBI_2012/train_isbi.py)
-- For deployment, see [this ipython notebook](./Examples/ISBI_2012/deploy_isbi.ipynb)
+- To train a U-Net, see [this example](./Examples/ISBI_2012/train_isbi.py)
+- To deploy, see [this ipython notebook](./Examples/ISBI_2012/deploy_isbi.ipynb)
 
 
 ### Dimension Ordering
 
-Note that this code makes explicit assumptions about the order of data dimensions (we expect tensors with shape (n_examples, n_channels, n_rows, n_cols)).  If you experience ugly-looking errors from underlying Thenao codes you may want to make sure that the Keras dimension ordering is set to "th"; e.g here is my keras.json:
+Note that this code makes explicit assumptions about the order of data dimensions (we expect tensors with shape (n_examples, n_channels, n_rows, n_cols)).  If you experience ugly-looking errors from underlying Theano codes you may want to make sure that the Keras dimension ordering is set to "th"; e.g here is my keras.json:
 
 ```
 {
