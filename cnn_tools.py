@@ -103,7 +103,8 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     """
     loss = -y_true * K.log(y_hat) - (1. - y_true) * K.log(1. - y_hat)
     if w is not None:
-        ce *= w
+        raise NotImplementedError('TODO')
+        #ce *= w
     return K.mean(loss)
 
 
