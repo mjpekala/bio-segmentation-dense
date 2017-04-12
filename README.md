@@ -4,6 +4,7 @@
 Some codes for segmenting images via per-pixel (or dense) classification.  The core idea is based on semantic segmentation [Long et al.] and we borrow the architecture from [Ronneberger et al.].  Currently this code assumes grayscale images and works for binary or multi-class problems.  Note this code was written in the author's spare time so YMMV.  Also, as with many things in this field, by the time you are reading this there may already be a better native implementation in Keras.
 
 mjp, 2016
+(last updated April 2017)
 
 ## Quick Start
 
