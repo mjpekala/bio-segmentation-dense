@@ -81,14 +81,14 @@ def f1_score(y_true, y_hat):
     y_hat_flat = K.flatten(y_hat[:,1,:,:])
 
     true_pos = K.sum(y_hat_flat * y_true_flat)
-    pred_pos = K.sum(y_hat_flat) + 1e-9    # avoid possible divide-by-zero
-    is_pos = K.sum(y_true_flat) + 1e-9     #  "  "
+    pred_pos = K.sum(y_hat_flat)
+    is_pos = K.sum(y_true_flat)
 
-    precision = true_pos / pred_pos
-    recall = true_pos / is_pos
+    precision = true_pos / (pred_pos + 1e-12)
+    recall = true_pos / (is_pos + 1e-12)
 
     # adding epsilon to the denominator here for the all-wrong corner case
-    return 2 * precision * recall / (precision + recall + 1e-9) 
+    return 2 * precision * recall / (precision + recall + 1e-12) 
 
 
 
