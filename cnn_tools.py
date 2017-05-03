@@ -87,7 +87,8 @@ def f1_score(y_true, y_hat):
     precision = true_pos / pred_pos
     recall = true_pos / is_pos
 
-    return 2 * precision * recall / (precision + recall) 
+    # adding epsilon to the denominator here for the all-wrong corner case
+    return 2 * precision * recall / (precision + recall + 1e-9) 
 
 
 
@@ -105,6 +106,12 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     if w is not None:
         raise NotImplementedError('TODO')
         #ce *= w
+
+    # here we ignore any "zero-hot" pixels, which we assume corresponds to a
+    # missing class label.
+    #is_pixel_labeled = K.sum(y_true, axis=1) == 1
+    #loss = loss * is_pixel_labeled
+    
     return K.mean(loss)
 
 
