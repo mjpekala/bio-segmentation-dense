@@ -17,7 +17,7 @@ np.random.seed(9999)
 from keras import backend as K
 
 sys.path.append('../..')
-from cnn_tools import *
+from cnn_tools import create_unet, train_model
 from data_tools import *
 
 import oct
@@ -32,7 +32,7 @@ if __name__ == '__main__':
     X, Y = oct.load_oct_sample_data('annotated.mat')
     Y = Y[:, np.newaxis, :, :]  # add a "channel" dimension
 
-    # (optional) "binarize" the data
+    # (optional) "binarize" the data for a two-class problem
     if False:
         Y = (Y > 0).astype(np.uint32)
 
@@ -56,8 +56,8 @@ if __name__ == '__main__':
     X_valid = X[1,...];  X_valid = X_valid[np.newaxis, ...]
     Y_valid = Y[1,...];  Y_valid = Y_valid[np.newaxis, ...]
 
-    print('X train size: %s' % str(X_train.shape))
-    print('Y train size: %s' % str(Y_train.shape))
+    print('X train: ', X_train.shape, '%0.2g' % np.min(X_train), '%0.2g' % np.max(X_train), X.dtype)
+    print('Y train: ', Y_train.shape, np.min(Y_train), np.max(Y_train), Y.dtype)
  
     # train model
     tic = time.time()
