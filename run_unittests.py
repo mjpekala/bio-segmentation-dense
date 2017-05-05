@@ -88,14 +88,13 @@ class TestStuff(unittest.TestCase):
         # perfect estimate 
         #--------------------------------------------------
         lossPerfect = f_theano.eval({a : y_true, b : y_true})
-        self.assertTrue(lossPerfect < 0)
+        self.assertTrue(lossPerfect > 0)
 
         #--------------------------------------------------
-        # no labels \equiv perfect estimate
+        # the case of no class labels should be close to that of perfect estimates
         #--------------------------------------------------
         lossNL = f_theano.eval({a : np.zeros(y_true.shape, dtype=np.float32), b : y_true})
-        print(lossNL)
-        self.assertTrue(np.abs(lossNL - lossPerfect) < 1e-9)
+        self.assertTrue(np.abs(lossNL - lossPerfect) < 1e-3)
 
         #--------------------------------------------------
         # make some mistakes and see the loss is higher
@@ -109,7 +108,8 @@ class TestStuff(unittest.TestCase):
         self.assertTrue(lossPerfect < lossErr)
 
         #--------------------------------------------------
-        # make sure that "unlabeled" pixels do not contribute to error
+        # here we test to see that an error is worse from
+        # a loss perspective than an unlabeled pixel.
         #--------------------------------------------------
         supp = np.random.randint(low=0, high=y_true_raw.size, size=(500,))
         y_true_u = np.copy(y_true_raw).flatten()
