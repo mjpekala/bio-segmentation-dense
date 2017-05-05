@@ -1,6 +1,7 @@
 #
 #  Demonstrates a quick training run on ISBI 2012.
 #  I typically train on the cluster in the background.
+#  This does not give state-of-the-art performance, but is fine as a demo.
 #
 #  Use the notebook to visualize the result after training is complete.
 #
