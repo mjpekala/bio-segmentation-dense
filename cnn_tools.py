@@ -102,16 +102,25 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
 
         y_hat  :  Estimated class labels; same shape as y_true
     """
-    loss = -y_true * K.log(y_hat) - (1. - y_true) * K.log(1. - y_hat)
+
+    # In some cases, there may be no label associated with a pixel.
+    # This is encoded as a "zero-hot" vector in y_true.
+    #
+    # On these pixels, we do not want to penalize the classifier
+    # for making a prediction. Our approach here is to make y_hat
+    # artifically agree perfectly with y_true on these pixels.
+    #
+    is_pixel_labeled = K.sum(y_true, axis=1)   # for one-hot or zero-hot, this should be 0 or 1
+    is_pixel_labeled = is_pixel_labeled[:,np.newaxis,:,:]  # enable broadcast
+    y_hat = y_hat * is_pixel_labeled
+
+    
+    #loss = -y_true * K.log(y_hat) - (1. - y_true) * K.log(1. - y_hat)
+    loss = -y_true * K.log(y_hat + 1.) - (1. - y_true) * K.log(1. - y_hat + 1.)  # for more numerical stability
     if w is not None:
         raise NotImplementedError('TODO')
         #ce *= w
 
-    # here we ignore any "zero-hot" pixels, which we assume corresponds to a
-    # missing class label.
-    #is_pixel_labeled = K.sum(y_true, axis=1) == 1
-    #loss = loss * is_pixel_labeled
-    
     return K.mean(loss)
 
 
