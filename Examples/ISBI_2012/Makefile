@@ -10,4 +10,4 @@ train :
 
 clean :
 	\rm -f valid_epoch*.npz
-	\rm -f weights_epoch*.npz
+	\rm -f weights_epoch*.hdf5
