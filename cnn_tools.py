@@ -109,7 +109,7 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     #
     # On these pixels, we do not want to penalize the classifier
     # for making a prediction. Our approach here is to make y_hat
-    # artifically agree perfectly with y_true on these pixels.
+    # artifically all zero on these pixels.
     #
     is_pixel_labeled = K.sum(y_true, axis=1)   # for one-hot or zero-hot, this should be 0 or 1
     is_pixel_labeled = is_pixel_labeled[:,np.newaxis,:,:]  # enable broadcast
@@ -117,9 +117,8 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
 
     # Note: normally y_hat is coming from a sigmoid (or other squashing) and therefore never
     #       reaches exactly 0 or 1 (so the call to log below is safe).  However, if we nuke some
-    #       values of y_hat above because there are no associated class labels at that pixel, we
-    #       can have issues.  This call to clip below addresses this.
-    y_hat = y_hat.clip(1e-6, 1-1e-6)
+    #       values of y_hat above, there will be blood.  The call to clip below addresses this.
+    y_hat = y_hat.clip(1e-6, 1 - 1e-6)
 
     # the categorical crossentropy loss loss
     # elements from this first step live in [-inf,0]
