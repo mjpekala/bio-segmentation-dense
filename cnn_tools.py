@@ -115,20 +115,22 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     is_pixel_labeled = is_pixel_labeled[:,np.newaxis,:,:]  # enable broadcast
     y_hat = y_hat * is_pixel_labeled
 
-    # Note: normally y_hat is coming from a sigmoid (or other squashing) and therefore never
-    #       reaches exactly 0 or 1 (so the call to log below is safe).  However, if we nuke some
-    #       values of y_hat above, there will be blood.  The call to clip below addresses this.
+    # Normally y_hat is coming from a sigmoid (or other "squashing")
+    # and therefore never reaches exactly 0 or 1 (so the call to log
+    # below is safe).  However, if we set to 0 some values of y_hat
+    # above, there will be blood.  Hence the call to clip().
     y_hat = y_hat.clip(1e-6, 1 - 1e-6)
 
     # the categorical crossentropy loss loss
     # elements from this first step live in [-inf,0]
     loss = y_true * K.log(y_hat) + (1. - y_true) * K.log(1. - y_hat)
-    
+
     if w is not None:
-        raise NotImplementedError('TODO')
+        raise NotImplementedError('asymmetric weighting is a to-be-implemented feature')
         #ce *= w
 
-    return K.mean(-loss)
+    #return K.mean(-loss)
+    return K.sum(-loss) / K.sum(is_pixel_labeled)
 
 
 
