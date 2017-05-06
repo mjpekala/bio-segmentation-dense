@@ -91,10 +91,11 @@ class TestStuff(unittest.TestCase):
         self.assertTrue(lossPerfect > 0)
 
         #--------------------------------------------------
-        # the case of no class labels should be close to that of perfect estimates
+        # If there are no class labels whatsoever, 1/N_labeled = inf
         #--------------------------------------------------
         lossNL = f_theano.eval({a : np.zeros(y_true.shape, dtype=np.float32), b : y_true})
-        self.assertTrue(np.abs(lossNL - lossPerfect) < 1e-3)
+        print(lossNL)
+        self.assertTrue(np.isinf(lossNL))
 
         #--------------------------------------------------
         # make some mistakes and see the loss is higher
