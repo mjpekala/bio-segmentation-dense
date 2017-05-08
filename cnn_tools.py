@@ -111,7 +111,8 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     # for making a prediction. Our approach here is to make y_hat
     # artifically all zero on these pixels.
     #
-    is_pixel_labeled = K.sum(y_true, axis=1)   # for one-hot or zero-hot, this should be 0 or 1
+    is_pixel_labeled = K.sum(y_true, axis=1)               # for one-hot or zero-hot, this should be 0 or 1
+    is_pixel_labeled = is_pixel_labeled.clip(0,1)          # for multi-label case
     is_pixel_labeled = is_pixel_labeled[:,np.newaxis,:,:]  # enable broadcast
     y_hat = y_hat * is_pixel_labeled
 
