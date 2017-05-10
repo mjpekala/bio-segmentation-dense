@@ -122,8 +122,7 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     # above, there will be blood.  Hence the call to clip().
     y_hat = y_hat.clip(1e-6, 1 - 1e-6)
 
-    # the categorical crossentropy loss loss
-    # elements from this first step live in [-inf,0]
+    # the categorical crossentropy loss
     loss = y_true * K.log(y_hat) + (1. - y_true) * K.log(1. - y_hat)
 
     if w is not None:
@@ -235,6 +234,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     """
     sz = model.input_shape[-2:]
     score_all = []
+    n_classes = model.output_shape[1]
 
     assert(X_train.dtype == np.float32)
 
@@ -243,7 +243,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
         for jj in print_generator(range(n_mb_per_epoch)):
             Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz, xform)
-            Yi = pixelwise_one_hot(Yi) 
+            Yi = pixelwise_one_hot(Yi, n_classes)
             loss, f1 = model.train_on_batch(Xi, Yi)
             score_all.append(f1)
 
@@ -255,7 +255,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         Yi_hat = deploy_model(X_valid, model)
         np.savez('valid_epoch%04d' % ii, X=X_valid, Y=Y_valid, Y_hat=Yi_hat, s=score_all)
 
-        if len(np.unique(Y_valid.flatten())) == 2:
+        if n_classes == 2:
             pred = (Yi_hat[:,1,:,:].flatten() >= 0.5).astype(np.int32)
             print('[train_model]: f1 on validation data:    %0.3f' % skm.f1_score(Y_valid.flatten(), pred))
         print('[train_model]: recent train performance: %0.3f' % np.mean(score_all[-20:]))
