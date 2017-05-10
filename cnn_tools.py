@@ -220,7 +220,9 @@ def create_unet(sz, n_classes=2, multi_label=False):
 
     model = Model(inputs=inputs, outputs=conv10)
 
-    model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_ace_loss, metrics=[f1_score])
+    # mjp: use acc because it is more general (works for multi-class)
+    #model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_ace_loss, metrics=[f1_score])
+    model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_ace_loss, metrics=['acc'])
 
     return model
 
@@ -239,13 +241,13 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     assert(X_train.dtype == np.float32)
 
     for ii in range(n_epochs):
+        # run one "epoch"
         print('[train_model]: starting "epoch" %d (of %d)' % (ii, n_epochs))
-
         for jj in print_generator(range(n_mb_per_epoch)):
             Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz, xform)
             Yi = pixelwise_one_hot(Yi, n_classes)
-            loss, f1 = model.train_on_batch(Xi, Yi)
-            score_all.append(f1)
+            loss, acc = model.train_on_batch(Xi, Yi)
+            score_all.append(loss)
 
         # save state
         fn_out = 'weights_epoch%04d.hdf5' % ii
@@ -258,8 +260,10 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         if n_classes == 2:
             pred = (Yi_hat[:,1,:,:].flatten() >= 0.5).astype(np.int32)
             print('[train_model]: f1 on validation data:    %0.3f' % skm.f1_score(Y_valid.flatten(), pred))
-        print('[train_model]: recent train performance: %0.3f' % np.mean(score_all[-20:]))
-        print('[train_model]: y_hat min, max, frac_0:   %0.2f / %0.2f / %0.3f' % (np.min(Yi_hat), np.max(Yi_hat), 1. * np.sum(Yi_hat[:,0,...]) / Yi_hat[:,0,...].size))
+            
+        print('[train_model]: recent train loss: %0.3f' % np.mean(score_all[-20:]))
+        print('[train_model]: y_hat min, max:    %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat)))
+        print('[train_model]: frac_0:            %0.3f' % (1. * np.sum(Yi_hat[:,0,...]) / Yi_hat[:,0,...].size))
 
     return score_all
 
