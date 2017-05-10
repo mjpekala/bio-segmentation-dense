@@ -1,5 +1,10 @@
 """
    Trains a dense (per-pixel) classifier on an OCT data set.
+
+   REFERENCES:
+    [tie16] Tien et al. Performance evaluation of automated segmentation software on optical coherence tomography volume data. J. Biophotonics, 2016.
+
+     http://onlinelibrary.wiley.com/doi/10.1002/jbio.201500239/full
 """
 
 from __future__ import print_function
@@ -36,12 +41,13 @@ if __name__ == '__main__':
     if False:
         Y = (Y > 0).astype(np.uint32)
 
-    n_classes = len(np.unique(Y))
+    n_classes = np.sum(np.unique(Y) >= 0)
     print('Y native shape:   ', Y.shape)
     print('class labels:     ', str(np.unique(Y)))
     print('one-hot shape:    ', pixelwise_one_hot(Y).shape)
     for yi in range(n_classes):
         print(' class %d fraction: %0.3f' % (yi, 1.*np.sum(Y==yi)/Y.size))
+    print('pct missing:       %0.2f' % (100. * np.sum(Y < 0) / Y.size))
 
     # XXX: also, discard the edges for now
     #      (unclear if annotations extend to edges
