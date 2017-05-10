@@ -88,10 +88,12 @@ if __name__ == '__main__':
     K.set_image_dim_ordering('th')
     tile_size = (256, 256)
 
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Load and preprocess data
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
     # adjust this as needed for your system
     fn=os.path.expanduser('~/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat')
-    
-    # load raw data
     X, Y1, Y2 = tian_load_data(fn)
 
     # for now, we just use one of the truth sets
@@ -112,26 +114,23 @@ if __name__ == '__main__':
     for yi in range(n_classes):
         print(' class %d fraction: %0.3f' % (yi, 1.*np.sum(Y==yi)/Y.size))
     print('pct missing:       %0.2f' % (100. * np.sum(Y < 0) / Y.size))
+    print('X :', X.shape, np.min(X), np.max(X), X.dtype)
 
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # split into train/valid/test
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # TODO: k fold CV since we are data limited
     train_slices = np.arange(30)
     valid_slices = np.arange(30,35)
-    
-    X_train = X[train_slices,...]
-    Y_train = Y[train_slices,...]
 
-    X_valid = X[valid_slices,...]
-    Y_valid = Y[valid_slices,...]
-
-    print('X train: ', X_train.shape, np.min(X_train), np.max(X_train), X.dtype)
-    print('Y train: ', Y_train.shape, np.min(Y_train), np.max(Y_train), Y.dtype)
-
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # train model
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     tic = time.time()
     model = create_unet((1, tile_size[0], tile_size[1]), n_classes)
-    train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
+    train_model(X[train_slices,...], Y[train_slices,...],
+                X[valid_slices,...], Y[valid_slices,...],
+                model, n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
 
     print('[info]: total time to train model: %0.2f min' % ((time.time() - tic)/60.))
 
