@@ -236,6 +236,8 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     sz = model.input_shape[-2:]
     score_all = []
 
+    assert(X_train.dtype == np.float32)
+
     for ii in range(n_epochs):
         print('[train_model]: starting "epoch" %d (of %d)' % (ii, n_epochs))
 
