@@ -16,16 +16,15 @@ __license__ = 'Apache 2.0'
 import os, sys, time
 
 import numpy as np
+from scipy.io import loadmat
 
-np.random.seed(9999)
-
+np.random.seed(9999) # before importing Keras...
 from keras import backend as K
 
 sys.path.append('../..')
 from cnn_tools import create_unet, train_model
 from data_tools import *
 
-from scipy.io import loadmat
 
 
 def tian_load_data(mat_file):
@@ -90,7 +89,7 @@ if __name__ == '__main__':
     tile_size = (256, 256)
 
     # adjust this as needed for your system
-    fn='/Users/pekalmj1/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat'
+    fn=os.path.expanduser('~/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat')
     
     # load raw data
     X, Y1, Y2 = tian_load_data(fn)
