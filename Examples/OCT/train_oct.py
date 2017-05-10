@@ -102,6 +102,10 @@ if __name__ == '__main__':
     X = X[:, np.newaxis, :, :].astype(np.float32)
     Y = Y[:, np.newaxis, :, :].astype(np.float32)
 
+    # we may also want to experiment with a simpler problem
+    Y_binary = np.copy(Y)
+    Y_binary[Y_binary > 0] = 1
+
     n_classes = np.sum(np.unique(Y) >= 0)
     print('Y native shape:   ', Y.shape)
     print('class labels:     ', str(np.unique(Y)))
@@ -114,6 +118,7 @@ if __name__ == '__main__':
     # TODO: k fold CV since we are data limited
     train_slices = np.arange(30)
     valid_slices = np.arange(30,35)
+    
     X_train = X[train_slices,...]
     Y_train = Y[train_slices,...]
 
@@ -126,6 +131,9 @@ if __name__ == '__main__':
     # train model
     tic = time.time()
     model = create_unet((1, tile_size[0], tile_size[1]), n_classes)
+    train_model(X_train, Y_train, X_valid, Y_valid, model,
+                n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
+    
     train_model(X_train, Y_train, X_valid, Y_valid, model,
                 n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
 
