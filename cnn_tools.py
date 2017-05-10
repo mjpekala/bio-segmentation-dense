@@ -264,7 +264,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
             
         print('[train_model]: recent train loss: %0.3f' % np.mean(score_all[-20:]))
         print('[train_model]: y_hat min, max:    %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat)))
-        print('[train_model]: frac_0:            %0.3f' % (1. * np.sum(Yi_hat[:,0,...]) / Yi_hat[:,0,...].size))
+        for ii in range(n_classes):
+            frac_ii = 1. * np.sum(Yi_hat[:,ii,...]) / Yi_hat[:,0,...].size # "prob mass" in class ii
+            print('[train_model]: frac_%d:            %0.3f' % (ii, frac_ii))
 
     return score_all
 
