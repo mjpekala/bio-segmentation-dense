@@ -124,7 +124,7 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
 
     # the categorical crossentropy loss
     #loss = y_true * K.log(y_hat) + (1. - y_true) * K.log(1. - y_hat)
-    loss = y_true * K.log(y_hat)
+    loss = K.sum(y_true * K.log(y_hat), axis=1)
 
     if w is not None:
         raise NotImplementedError('asymmetric weighting is a to-be-implemented feature')
