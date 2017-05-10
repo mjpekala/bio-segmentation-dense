@@ -25,7 +25,7 @@ class TestStuff(unittest.TestCase):
 
         y_true = np.zeros((n_examples, 1, m, n))
         y_true[:,:,:,0:n2] = 1
-        y_true = pixelwise_one_hot(y_true).astype(np.float32)
+        y_true = pixelwise_one_hot(y_true, n_classes).astype(np.float32)
 
         # Note: we assume a theano backend here
         a = theano.tensor.tensor4('y_true')
@@ -50,8 +50,9 @@ class TestStuff(unittest.TestCase):
 
         
     def test_y_onehot(self):
-        y_fake = np.random.randint(low=0, high=10, size=(5,1,3,3))
-        y_onehot = pixelwise_one_hot(y_fake)
+        n_classes = 10
+        y_fake = np.random.randint(low=0, high=n_classes, size=(5,1,3,3))
+        y_onehot = pixelwise_one_hot(y_fake, n_classes)
  
         self.assertTrue(y_onehot.shape[1] == 10)
 
@@ -63,9 +64,9 @@ class TestStuff(unittest.TestCase):
                     self.assertTrue(np.sum(y_onehot[kk,:,ii,jj]) == 1)
 
         # make sure missing labels work as expected
-        y_fake = np.random.randint(low=0, high=10, size=(5,1,3,3))
+        y_fake = np.random.randint(low=0, high=n_classes, size=(5,1,3,3))
         y_fake[0,:,:,:] = -10
-        y_onehot = pixelwise_one_hot(y_fake)
+        y_onehot = pixelwise_one_hot(y_fake, n_classes)
         assert(np.all(y_onehot[0,:,:,:] == 0))
 
         
@@ -77,7 +78,7 @@ class TestStuff(unittest.TestCase):
         n4 = np.floor(n/4).astype(np.int32)
 
         y_true_raw = np.random.randint(low=0, high=n_classes, size=(n_examples, 1, m, n))
-        y_true = pixelwise_one_hot(y_true_raw).astype(np.float32)
+        y_true = pixelwise_one_hot(y_true_raw, n_classes).astype(np.float32)
 
         # Note: we assume theano backend here
         a = theano.tensor.tensor4('y_true')
@@ -94,7 +95,6 @@ class TestStuff(unittest.TestCase):
         # If there are no class labels whatsoever, 1/N_labeled = inf
         #--------------------------------------------------
         lossNL = f_theano.eval({a : np.zeros(y_true.shape, dtype=np.float32), b : y_true})
-        print(lossNL)
         self.assertTrue(np.isinf(lossNL))
 
         #--------------------------------------------------
@@ -122,8 +122,8 @@ class TestStuff(unittest.TestCase):
         y_true_u = np.reshape(y_true_u, y_true_raw.shape)
         y_hat = np.reshape(y_hat, y_true_u.shape)
         
-        y_true_u = pixelwise_one_hot(y_true_u).astype(np.float32)
-        y_hat = pixelwise_one_hot(y_hat).astype(np.float32)
+        y_true_u = pixelwise_one_hot(y_true_u, n_classes).astype(np.float32)
+        y_hat = pixelwise_one_hot(y_hat, n_classes).astype(np.float32)
         
         loss1 = f_theano.eval({a : y_true, b : y_hat})
         loss2 = f_theano.eval({a : y_true_u, b : y_hat})
