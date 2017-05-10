@@ -123,7 +123,8 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     y_hat = y_hat.clip(1e-6, 1 - 1e-6)
 
     # the categorical crossentropy loss
-    loss = y_true * K.log(y_hat) + (1. - y_true) * K.log(1. - y_hat)
+    #loss = y_true * K.log(y_hat) + (1. - y_true) * K.log(1. - y_hat)
+    loss = y_true * K.log(y_hat)
 
     if w is not None:
         raise NotImplementedError('asymmetric weighting is a to-be-implemented feature')
@@ -212,7 +213,8 @@ def create_unet(sz, n_classes=2, multi_label=False):
         softmax = e_x / total
         return softmax
 
-    if multi_label: 
+    if multi_label:
+        raise RuntimeError('not compatible with current loss function!')
         conv10 = Conv2D(n_classes, (1, 1), activation='sigmoid')(conv9)
     else:
         conv10 = Conv2D(n_classes, (1, 1))(conv9)
