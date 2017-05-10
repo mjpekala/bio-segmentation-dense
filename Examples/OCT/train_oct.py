@@ -133,9 +133,6 @@ if __name__ == '__main__':
     model = create_unet((1, tile_size[0], tile_size[1]), n_classes)
     train_model(X_train, Y_train, X_valid, Y_valid, model,
                 n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
-    
-    train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
 
     print('[info]: total time to train model: %0.2f min' % ((time.time() - tic)/60.))
 
