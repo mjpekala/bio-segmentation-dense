@@ -98,9 +98,9 @@ if __name__ == '__main__':
     Y = Y1
     Y = tian_dense_labels(Y, X.shape[1])
 
-    # add "channel" dimension
-    X = X[:, np.newaxis, :, :] 
-    Y = Y[:, np.newaxis, :, :]
+    # add "channel" dimension and change to float32
+    X = X[:, np.newaxis, :, :].astype(np.float32)
+    Y = Y[:, np.newaxis, :, :].astype(np.float32)
 
     n_classes = np.sum(np.unique(Y) >= 0)
     print('Y native shape:   ', Y.shape)
