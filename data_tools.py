@@ -71,7 +71,7 @@ def load_multilayer_tiff(data_file):
 #-------------------------------------------------------------------------------
 
 
-def pixelwise_one_hot(Y):
+def pixelwise_one_hot(Y, n_classes):
     """  Given a tensor of class labels with the shape:
 
         (#_examples, 1, #_rows, #_cols)
@@ -86,7 +86,11 @@ def pixelwise_one_hot(Y):
     Hence, missing values can be naturally supported this way.
     """
     assert(Y.shape[1] == 1)
-    n_classes = np.floor(np.max(Y) + 1).astype(np.uint32)
+
+    # updated: we no longer infer the # of classes directly from Y.  This can
+    # fail if not all classes appear in a given minibatch.
+    #
+    #n_classes = np.floor(np.max(Y) + 1).astype(np.uint32)
     
     Y_onehot = np.zeros((Y.shape[0], n_classes, Y.shape[2], Y.shape[3]), dtype=np.int32)
     for yi in np.arange(n_classes):
