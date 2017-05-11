@@ -39,6 +39,8 @@ def tian_load_data(mat_file):
     X = np.transpose(X, [2, 0, 1])
     Y1 = np.transpose(Y1, [2, 0, 1])
     Y2 = np.transpose(Y2, [2, 0, 1])
+
+    # assign slices to folds
     
     return X, Y1, Y2
 
@@ -243,7 +245,7 @@ if __name__ == '__main__':
         acc_test = 100. * np.sum(Y_hat_s[test_slices,...] == np.squeeze(Y[test_slices,...])) / Y_hat_s[test_slices,...].size
 
         C = confusion_matrix(Y[test_slices,...].flatten(), Y_hat_s[test_slices,...].flatten())
-        acc_per_class = 1. * np.diag(C) / np.sum(C,axis=2)
+        acc_per_class = 1. * np.diag(C) / np.sum(C,axis=1)
 
         print('acc test (aggregate): ', acc_test)
         print('acc test (per-class): ', acc_per_class)
