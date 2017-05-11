@@ -222,7 +222,7 @@ def create_unet(sz, n_classes=2, multi_label=False):
 
     model = Model(inputs=inputs, outputs=conv10)
 
-    # mjp: use acc because it is more general (works for multi-class)
+    # mjp: my f1_score is only for binary case; use acc for now
     #model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_ace_loss, metrics=[f1_score])
     model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_ace_loss, metrics=['acc'])
 
@@ -244,7 +244,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
     for ii in range(n_epochs):
         # run one "epoch"
-        print('[train_model]: starting "epoch" %d (of %d)' % (ii, n_epochs))
+        print('\n[train_model]: starting "epoch" %d (of %d)' % (ii, n_epochs))
         for jj in print_generator(range(n_mb_per_epoch)):
             Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz, xform)
             Yi = pixelwise_one_hot(Yi, n_classes)
@@ -256,18 +256,25 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         model.save_weights(fn_out)
 
         # evaluate performance on validation data
-        Yi_hat = deploy_model(X_valid, model)
-        np.savez('valid_epoch%04d' % ii, X=X_valid, Y=Y_valid, Y_hat=Yi_hat, s=score_all)
+        Yi_hat_oh = deploy_model(X_valid, model)  # oh = one-hot
+        np.savez('valid_epoch%04d' % ii, X=X_valid, Y=Y_valid, Y_hat=Yi_hat_oh, s=score_all)
 
-        if n_classes == 2:
-            pred = (Yi_hat[:,1,:,:].flatten() >= 0.5).astype(np.int32)
-            print('[train_model]: f1 on validation data:    %0.3f' % skm.f1_score(Y_valid.flatten(), pred))
-            
+        Yi_hat = np.argmax(Yi_hat_oh, axis=1);  Yi_hat = Yi_hat[:,np.newaxis,...]
+        acc = 100. * np.sum(Yi_hat == Y_valid) / Y_valid.size
+        net_prob = np.sum(Yi_hat_oh, axis=1)  # This should be very close to 1 everywhere
+        
         print('[train_model]: recent train loss: %0.3f' % np.mean(score_all[-20:]))
-        print('[train_model]: y_hat min, max:    %0.2f / %0.2f' % (np.min(Yi_hat), np.max(Yi_hat)))
+        print('[train_model]: acc on validation data:   %0.3f' % acc)
+        
+        if n_classes == 2:
+            # easy to do an f1 score in binary case
+            pred = (Yi_hat_oh[:,1,:,:].flatten() >= 0.5).astype(np.int32)
+            print('[train_model]: f1 on validation data:    %0.3f' % skm.f1_score(Y_valid.flatten(), pred))
+
+        # look at the distribution of class labels
         for ii in range(n_classes):
-            frac_ii = 1. * np.sum(Yi_hat[:,ii,...]) / Yi_hat[:,0,...].size # "prob mass" in class ii
-            print('[train_model]: frac_%d:            %0.3f' % (ii, frac_ii))
+            frac_ii = 1. * np.sum(Yi_hat_oh[:,ii,...]) / Yi_hat_oh[:,0,...].size # "prob mass" in class ii
+            print('[train_model]:    frac y=%d:          %0.3f' % (ii, frac_ii))
 
     return score_all
 
