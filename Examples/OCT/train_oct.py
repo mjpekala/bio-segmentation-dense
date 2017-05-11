@@ -22,7 +22,7 @@ np.random.seed(9999) # before importing Keras...
 from keras import backend as K
 
 sys.path.append('../..')
-from cnn_tools import create_unet, train_model
+from cnn_tools import create_unet, train_model, deploy_model
 from data_tools import *
 
 
