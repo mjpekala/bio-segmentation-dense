@@ -2,7 +2,7 @@
    Trains a dense (per-pixel) classifier on an OCT data set.
 
    REFERENCES:
-    [tie16] Tien et al. Performance evaluation of automated segmentation software 
+    [tia16] Tian et al. Performance evaluation of automated segmentation software 
             on optical coherence tomography volume data. J. Biophotonics, 2016.
             http://onlinelibrary.wiley.com/doi/10.1002/jbio.201500239/full
 """
@@ -28,6 +28,7 @@ from data_tools import *
 
 
 def tian_load_data(mat_file):
+    """ Loads data set from [tia16]. """
     mf = loadmat(mat_file)
     X = mf['volumedata']
     Y1 = mf['O1']
@@ -81,12 +82,72 @@ def tian_dense_labels(Y, n_rows):
             Y_dense[s,region_6_11,col] = 4
 
     return Y_dense
-            
-    
+
+
+
+def tian_find_crops(Y_est, crop_pct):
+    """Chooses vertical crops based on estimated support of layers.
+
+    Our goal here is to reduce the vertical extent of the data set since
+    there is a lot of "empty space" contributing to class imbalance.
+    This function uses an estimate of the support of the layers of
+    interest to pick a number of rows from each slice to retain.
+
+    We'll pick the same # of rows to discard from every slice a-priori
+    in order to keep the tensor data structure intact later on.
+
+       Y_est : a tensor with dimensions (#_slices, #_rows, #_cols)
+    """
+    assert(0 < crop_pct and crop_pct < 1)
+
+    n_slic, n_rows, n_cols = Y_est.shape  
+
+    n_rows_to_keep = int(np.ceil(crop_pct * n_rows))
+    box_filt = np.ones((n_rows_to_keep,))
+
+    crops = np.zeros((n_slic, 2))
+
+    for s in range(n_slic):
+        # there may be better ways; for now, we convolve the marginal
+        # sum of the estimated layer support with a uniform filter to
+        # find the best set of rows to keep.
+        marginal = np.sum(Y_est[s,:,:], axis=1)
+        response = np.convolve(marginal, box_filt, 'same')
+
+        a = np.argmax(response) - n_rows_to_keep / 2
+        b = a + n_rows_to_keep
+
+        if b > n_rows:
+            delta = b - n_rows
+            a -= delta; b -= delta
+        elif a < 0:
+            delta = 0 - a
+            a += delta; b += delta
+
+        crops[s,:] = np.array([a,b])
+ 
+    return crops
+
+
+
+def _crop_rows(X, crops):
+    n_rows = crops[0,1] - crops[0,0]
+
+    X_out = []
+    for s in range(X.shape[0]):
+        rows_to_keep = np.arange(crops[s,0], crops[s,1]).astype(np.int32)
+        Xs = X[s, ..., rows_to_keep, :]
+        Xs = Xs[np.newaxis, ...]
+        X_out.append(Xs)
+                            
+    return np.concatenate(X_out, axis=0)
+
+
 
 if __name__ == '__main__':
     K.set_image_dim_ordering('th')
     tile_size = (256, 256)
+    n_folds = 5
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Load and preprocess data
@@ -104,9 +165,13 @@ if __name__ == '__main__':
     X = X[:, np.newaxis, :, :].astype(np.float32)
     Y = Y[:, np.newaxis, :, :].astype(np.float32)
 
-    # we may also want to experiment with a simpler problem
+    # class labels for a "layer detection" problem
     Y_binary = np.copy(Y)
     Y_binary[Y_binary > 0] = 1
+
+    # assign data to folds.
+    # update if we learn anything about mapping of patients -> images
+    fold_id = np.mod(np.arange(X.shape[0]), n_folds)
 
     n_classes = np.sum(np.unique(Y) >= 0)
     print('Y native shape:   ', Y.shape)
@@ -116,21 +181,51 @@ if __name__ == '__main__':
     print('pct missing:       %0.2f' % (100. * np.sum(Y < 0) / Y.size))
     print('X :', X.shape, np.min(X), np.max(X), X.dtype)
 
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # split into train/valid/test
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # TODO: k fold CV since we are data limited
-    train_slices = np.arange(30)
-    valid_slices = np.arange(30,35)
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # train model
+    # run some experiments
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    tic = time.time()
-    model = create_unet((1, tile_size[0], tile_size[1]), n_classes)
-    train_model(X[train_slices,...], Y[train_slices,...],
-                X[valid_slices,...], Y[valid_slices,...],
-                model, n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
+    for test_fold in range(n_folds):
+        #
+        # determine train/valid split for this fold
+        #
+        avail_folds = [x for x in range(n_folds) if x != test_fold]
+        train_folds = avail_folds[:-2]
+        valid_fold = avail_folds[-1]
 
-    print('[info]: total time to train model: %0.2f min' % ((time.time() - tic)/60.))
+        train_slices = [x for x in range(X.shape[0]) if fold_id[x] in train_folds]
+        valid_slices = [x for x in range(X.shape[0]) if fold_id[x] == valid_fold]
+        test_slices  = [x for x in range(X.shape[0]) if fold_id[x] == test_fold]
 
+        #
+        # train and deploy a model for the "layer detection" problem
+        #
+        model = create_unet((1, tile_size[0], tile_size[1]), 2)
+        model.name = 'oct_detection_fold%d' % test_fold
+        
+        tic = time.time()
+        train_model(X[train_slices,...], Y[train_slices,...],
+                    X[valid_slices,...], Y[valid_slices,...],
+                    model, n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
+        print('[info]: time to train segmentation model: %0.2f min' % ((time.time() - tic)/60.))
+
+        tv_slices = [x for x in range(X.shape[0]) if fold_id[x] in train_folds + [valid_fold,]]
+        Y_hat_layers = deploy_model(X[tv_slices,...], model)
+        Y_hat_layers = Y_hat_layers[:,1,:,:] # keep only the postive class estimate
+
+        #
+        # create a new data set for the layer estimation problem
+        #
+        crops = tian_find_crops(Y_hat_layers, .33)
+        X_train_s = _crop_rows(X[train_slices, ...], crops)
+        Y_train_s = _crop_rows(Y[train_slices, ...], crops)
+        X_valid_s = _crop_rows(X[valid_slices, ...], crops)
+        Y_valid_s = _crop_rows(Y[valid_slices, ...], crops)
+        
+        model_s = create_unet((1, tile_size[0], tile_size[1]), n_classes)
+        model_s.name = 'oct_segment_fold%d' % test_fold
+        
+        tic = time.time()
+        train_model(X_train_s, Y_train_s, X_valid_s, Y_valid_s, 
+                    model_s, n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
+        print('[info]: total time to train model: %0.2f min' % ((time.time() - tic)/60.))
