@@ -17,6 +17,7 @@ import os, sys, time
 
 import numpy as np
 from scipy.io import loadmat
+from sklearn.metrics import confusion_matrix
 
 np.random.seed(9999) # before importing Keras...
 from keras import backend as K
@@ -148,6 +149,7 @@ if __name__ == '__main__':
     K.set_image_dim_ordering('th')
     tile_size = (256, 256)
     n_folds = 5
+    n_epochs = 20  # TODO: base this on validation performance 
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Load and preprocess data
@@ -192,6 +194,7 @@ if __name__ == '__main__':
         avail_folds = [x for x in range(n_folds) if x != test_fold]
         train_folds = avail_folds[:-2]
         valid_fold = avail_folds[-1]
+        print('train folds: ', train_folds, ', valid fold(s): ', valid_fold, ', test fold(s): ' test_fold)
 
         train_slices = [x for x in range(X.shape[0]) if fold_id[x] in train_folds]
         valid_slices = [x for x in range(X.shape[0]) if fold_id[x] == valid_fold]
@@ -206,26 +209,38 @@ if __name__ == '__main__':
         tic = time.time()
         train_model(X[train_slices,...], Y_binary[train_slices,...],
                     X[valid_slices,...], Y_binary[valid_slices,...],
-                    model, n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
-        print('[info]: time to train segmentation model: %0.2f min' % ((time.time() - tic)/60.))
+                    model, n_epochs=n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False)
+        print('[info]: time to train "detection" model: %0.2f min' % ((time.time() - tic)/60.))
 
         tv_slices = [x for x in range(X.shape[0]) if fold_id[x] in train_folds + [valid_fold,]]
         Y_hat_layers = deploy_model(X[tv_slices,...], model)
         Y_hat_layers = Y_hat_layers[:,1,:,:] # keep only the postive class estimate
 
         #
-        # create a new data set for the layer estimation problem
+        # augment data set for the layer segmentation problem
         #
         crops = tian_find_crops(Y_hat_layers, .33)
         X_train_s = _crop_rows(X[train_slices, ...], crops)
         Y_train_s = _crop_rows(Y[train_slices, ...], crops)
         X_valid_s = _crop_rows(X[valid_slices, ...], crops)
         Y_valid_s = _crop_rows(Y[valid_slices, ...], crops)
-        
+
         model_s = create_unet((1, 128, 128), n_classes)  # note tile size change
-        model_s.name = 'oct_segment_fold%d' % test_fold
-        
+        model_s.name = 'oct_segmentation_fold%d' % test_fold
+ 
         tic = time.time()
         train_model(X_train_s, Y_train_s, X_valid_s, Y_valid_s, 
-                    model_s, n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
-        print('[info]: total time to train model: %0.2f min' % ((time.time() - tic)/60.))
+                    model_s, n_epochs=n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False)
+        print('[info]: time to train "segmentation" model: %0.2f min' % ((time.time() - tic)/60.))
+
+        #
+        # Deploy on test data
+        #
+
+        # TODO: some combo of model and model_s may be needed??
+        Y_hat_s = deploy_model(X, model_s)
+        Y_hat_s = np.argmax(Y_hat_s, axis=1)
+        acc_test = 100. * np.sum(Y_hat_s[test_slices,...] == Y[test_slices,...])
+
+        print(acc_test)
+        print(confusion_matrix(Y[test_slices,...].flatten(), Y_hat_s[test_slices,...].flatten()))
