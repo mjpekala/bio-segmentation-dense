@@ -107,20 +107,15 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     # In some cases, there may be no label associated with a pixel.
     # This is encoded as a "zero-hot" vector in y_true.
     #
-    # On these pixels, we do not want to penalize the classifier
-    # for making a prediction. Our approach here is to make y_hat
-    # artifically all zero on these pixels.
-    #
     is_pixel_labeled = K.sum(y_true, axis=1)               # for one-hot or zero-hot, this should be 0 or 1
     is_pixel_labeled = is_pixel_labeled.clip(0,1)          # for multi-label case
-    is_pixel_labeled = is_pixel_labeled[:,np.newaxis,:,:]  # enable broadcast
-    y_hat = y_hat * is_pixel_labeled
+    #is_pixel_labeled = is_pixel_labeled[:,np.newaxis,:,:]  # enable broadcast
+    #y_hat = y_hat * is_pixel_labeled                       # not necessary
 
     # Normally y_hat is coming from a sigmoid (or other "squashing")
     # and therefore never reaches exactly 0 or 1 (so the call to log
-    # below is safe).  However, if we set to 0 some values of y_hat
-    # above, there will be blood.  Hence the call to clip().
-    y_hat = y_hat.clip(1e-6, 1 - 1e-6)
+    # below is safe).  However, to be safe we call clip() here.
+    y_hat = y_hat.clip(1e-9, 1 - 1e-9)
 
     # the categorical crossentropy loss
     # ** assumes one-hot encoding and sum-to-one along class dimension **
@@ -273,8 +268,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
         # look at the distribution of class labels
         for ii in range(n_classes):
-            frac_ii = 1. * np.sum(Yi_hat_oh[:,ii,...]) / Yi_hat_oh[:,0,...].size # "prob mass" in class ii
-            print('[train_model]:    frac y=%d:          %0.3f' % (ii, frac_ii))
+            frac_ii_yhat = 1. * np.sum(Yi_hat_oh[:,ii,...]) / Y_valid.size # "prob mass" in class ii
+            frac_ii_y = np.sum(Y_valid == ii) / Y_valid.size
+            print('[train_model]:    frac y=%d:  %0.3f (%0.3f)' % (ii, frac_ii_yhat, frac_ii_y))
 
     return score_all
 
