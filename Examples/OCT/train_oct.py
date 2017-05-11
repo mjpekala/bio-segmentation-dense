@@ -136,7 +136,10 @@ def _crop_rows(X, crops):
     X_out = []
     for s in range(X.shape[0]):
         rows_to_keep = np.arange(crops[s,0], crops[s,1]).astype(np.int32)
-        Xs = X[s, ..., rows_to_keep, :]
+        if X.ndim == 4:
+            Xs = X[s, :, rows_to_keep, :]
+        else:
+            Xs = X[s, rows_to_keep, :]
         Xs = Xs[np.newaxis, ...]
         X_out.append(Xs)
                             
