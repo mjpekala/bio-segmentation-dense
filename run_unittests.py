@@ -98,18 +98,7 @@ class TestStuff(unittest.TestCase):
         # If there are no class labels whatsoever, 1/N_labeled = inf
         #--------------------------------------------------
         lossNL = f_theano.eval({a : np.zeros(y_true.shape, dtype=np.float32), b : y_true})
-        self.assertTrue(np.isinf(lossNL))
-
-        #--------------------------------------------------
-        # make some mistakes and see the loss is higher
-        #--------------------------------------------------
-        y_hat = np.copy(y_true)
-        splatter = np.random.randint(low=0, high=y_hat.size, size=(500,))
-        tmp = y_hat.ravel()
-        tmp[splatter] = 1
-        y_hat = np.reshape(tmp, y_hat.shape)
-        lossErr = f_theano.eval({a : y_true, b : y_hat})
-        self.assertTrue(lossPerfect < lossErr)
+        self.assertTrue(not np.isfinite(lossNL))
 
         #--------------------------------------------------
         # here we test to see that an error is worse from
