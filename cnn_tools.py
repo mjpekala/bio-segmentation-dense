@@ -241,7 +241,6 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     n_classes = model.output_shape[1]
 
     assert(X_train.dtype == np.float32)
-    assert(Y_train.dtype == np.float32)
 
     for ii in range(n_epochs):
         # run one "epoch"
