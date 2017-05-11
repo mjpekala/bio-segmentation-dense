@@ -109,8 +109,12 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     #
     is_pixel_labeled = K.sum(y_true, axis=1)               # for one-hot or zero-hot, this should be 0 or 1
     is_pixel_labeled = is_pixel_labeled.clip(0,1)          # for multi-label case
+
+    # we could zero out estimates associated with unlabeled pixels, but this is
+    # not necessary (multiplying by y_true effectively does this)
+    #
     #is_pixel_labeled = is_pixel_labeled[:,np.newaxis,:,:]  # enable broadcast
-    #y_hat = y_hat * is_pixel_labeled                       # not necessary
+    #y_hat = y_hat * is_pixel_labeled
 
     # Normally y_hat is coming from a sigmoid (or other "squashing")
     # and therefore never reaches exactly 0 or 1 (so the call to log
@@ -174,25 +178,21 @@ def create_unet(sz, n_classes=2, multi_label=False):
 
     up6 = UpSampling2D(size=(2, 2))(conv5)
     up6 = Concatenate(axis=1)([up6, conv4])
-    #up6 = merge([UpSampling2D(size=(2, 2))(conv5), conv4], mode='concat', concat_axis=1)
     conv6 = Conv2D(256, (3, 3), activation='relu', padding=bm)(up6)
     conv6 = Conv2D(256, (3, 3), activation='relu', padding=bm)(conv6)
 
     up7 = UpSampling2D(size=(2,2))(conv6)
     up7 = Concatenate(axis=1)([up7, conv3])
-    #up7 = merge([UpSampling2D(size=(2, 2))(conv6), conv3], mode='concat', concat_axis=1)
     conv7 = Conv2D(128, (3, 3), activation='relu', padding=bm)(up7)
     conv7 = Conv2D(128, (3, 3), activation='relu', padding=bm)(conv7)
 
     up8 = UpSampling2D(size=(2,2))(conv7)
     up8 = Concatenate(axis=1)([up8, conv2])
-    #up8 = merge([UpSampling2D(size=(2, 2))(conv7), conv2], mode='concat', concat_axis=1)
     conv8 = Conv2D(64, (3, 3), activation='relu', padding=bm)(up8)
     conv8 = Conv2D(64, (3, 3), activation='relu', padding=bm)(conv8)
 
     up9 = UpSampling2D(size=(2,2))(conv8)
     up9 = Concatenate(axis=1)([up9, conv1])
-    #up9 = merge([UpSampling2D(size=(2, 2))(conv8), conv1], mode='concat', concat_axis=1)
     conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(up9)
     conv9 = Conv2D(32, (3, 3), activation='relu', padding=bm)(conv9)
 
@@ -209,7 +209,7 @@ def create_unet(sz, n_classes=2, multi_label=False):
         return softmax
 
     if multi_label:
-        raise RuntimeError('not compatible with current loss function!')
+        raise RuntimeError('this may not be compatible with the ace loss function!')
         conv10 = Conv2D(n_classes, (1, 1), activation='sigmoid')(conv9)
     else:
         conv10 = Conv2D(n_classes, (1, 1))(conv9)
@@ -221,6 +221,7 @@ def create_unet(sz, n_classes=2, multi_label=False):
     #model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_ace_loss, metrics=[f1_score])
     model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_ace_loss, metrics=['acc'])
 
+    model.name = 'U-Net'
     return model
 
 
@@ -247,12 +248,12 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
             score_all.append(loss)
 
         # save state
-        fn_out = 'weights_epoch%04d.hdf5' % ii
+        fn_out = '%s_weights_epoch%04d.hdf5' % (model.name, ii)
         model.save_weights(fn_out)
 
         # evaluate performance on validation data
         Yi_hat_oh = deploy_model(X_valid, model)  # oh = one-hot
-        np.savez('valid_epoch%04d' % ii, X=X_valid, Y=Y_valid, Y_hat=Yi_hat_oh, s=score_all)
+        np.savez('%s_valid_epoch%04d' % (model.name, ii), X=X_valid, Y=Y_valid, Y_hat=Yi_hat_oh, s=score_all)
 
         Yi_hat = np.argmax(Yi_hat_oh, axis=1);  Yi_hat = Yi_hat[:,np.newaxis,...]
         acc = 100. * np.sum(Yi_hat == Y_valid) / Y_valid.size
@@ -269,7 +270,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         # look at the distribution of class labels
         for ii in range(n_classes):
             frac_ii_yhat = 1. * np.sum(Yi_hat_oh[:,ii,...]) / Y_valid.size # "prob mass" in class ii
-            frac_ii_y = np.sum(Y_valid == ii) / Y_valid.size
+            frac_ii_y = 1. * np.sum(Y_valid == ii) / Y_valid.size
             print('[train_model]:    frac y=%d:  %0.3f (%0.3f)' % (ii, frac_ii_yhat, frac_ii_y))
 
     return score_all
