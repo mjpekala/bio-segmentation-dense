@@ -136,7 +136,7 @@ def _crop_rows(X, crops):
     X_out = []
     for s in range(X.shape[0]):
         rows_to_keep = np.arange(crops[s,0], crops[s,1]).astype(np.int32)
-        Xs = X[[s],...]
+        Xs = X[[s],...]  # use [.] to dodge the squeeze
         Xs = Xs[..., rows_to_keep, :]
         X_out.append(Xs)
                             
