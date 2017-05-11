@@ -245,7 +245,7 @@ if __name__ == '__main__':
         acc_test = 100. * np.sum(Y_hat_s[test_slices,...] == np.squeeze(Y[test_slices,...])) / Y_hat_s[test_slices,...].size
 
         C = confusion_matrix(Y[test_slices,...].flatten(), Y_hat_s[test_slices,...].flatten())
-        acc_per_class = 1. * np.diag(C) / np.sum(C,axis=1)
+        acc_per_class = 100. * np.diag(C) / np.sum(C,axis=1)
 
         print('acc test (aggregate): ', acc_test)
         print('acc test (per-class): ', acc_per_class)
