@@ -204,8 +204,8 @@ if __name__ == '__main__':
         model.name = 'oct_detection_fold%d' % test_fold
         
         tic = time.time()
-        train_model(X[train_slices,...], Y[train_slices,...],
-                    X[valid_slices,...], Y[valid_slices,...],
+        train_model(X[train_slices,...], Y_binary[train_slices,...],
+                    X[valid_slices,...], Y_binary[valid_slices,...],
                     model, n_epochs=20, mb_size=16, n_mb_per_epoch=25, xform=False)
         print('[info]: time to train segmentation model: %0.2f min' % ((time.time() - tic)/60.))
 
