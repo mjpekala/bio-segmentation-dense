@@ -111,7 +111,7 @@ if __name__ == '__main__':
     n_classes = np.sum(np.unique(Y) >= 0)
     print('Y native shape:   ', Y.shape)
     print('class labels:     ', str(np.unique(Y)))
-    for yi in range(n_classes):
+    for yi in np.unique(Y):
         print(' class %d fraction: %0.3f' % (yi, 1.*np.sum(Y==yi)/Y.size))
     print('pct missing:       %0.2f' % (100. * np.sum(Y < 0) / Y.size))
     print('X :', X.shape, np.min(X), np.max(X), X.dtype)
