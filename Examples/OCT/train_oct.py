@@ -222,7 +222,7 @@ if __name__ == '__main__':
         X_valid_s = _crop_rows(X[valid_slices, ...], crops)
         Y_valid_s = _crop_rows(Y[valid_slices, ...], crops)
         
-        model_s = create_unet((1, tile_size[0], tile_size[1]), n_classes)
+        model_s = create_unet((1, 128, 128, n_classes)  # note tile size change
         model_s.name = 'oct_segment_fold%d' % test_fold
         
         tic = time.time()
