@@ -240,7 +240,11 @@ if __name__ == '__main__':
         # TODO: some combo of model and model_s may be needed??
         Y_hat_s = deploy_model(X, model_s)
         Y_hat_s = np.argmax(Y_hat_s, axis=1)
-        acc_test = 100. * np.sum(Y_hat_s[test_slices,...] == Y[test_slices,...]) / Y[test_slices,...].size
+        acc_test = 100. * np.sum(Y_hat_s[test_slices,...] == np.squeeze(Y[test_slices,...])) / Y_hat_s[test_slices,...].size
 
-        print('acc test: ', acc_test)
-        print(confusion_matrix(Y[test_slices,...].flatten(), Y_hat_s[test_slices,...].flatten()))
+        C = confusion_matrix(Y[test_slices,...].flatten(), Y_hat_s[test_slices,...].flatten())
+        acc_per_class = 1. * np.diag(C) / np.sum(C,axis=2)
+
+        print('acc test (aggregate): ', acc_test)
+        print('acc test (per-class): ', acc_per_class)
+        print(C)
