@@ -265,6 +265,16 @@ def apply_symmetry(tensors, op_idx=-1):
 
 
 def apply_warping(X, Y, sigma=10):
+
+    def get_slice_0(X):
+        """Returns X[0,..,0, :, :]"""
+        if X.ndim == 2:
+            return X
+        else:
+            sz = X.shape
+            new_sz = (np.prod(sz[0:-2]), sz[-2], sz[-1])
+            return np.squeeze(np.reshape(X, sz)[0, :, :])
+        
     X0 = get_slice_0(X)
     
     # make sure images are square
@@ -381,13 +391,3 @@ def apply_displacement_mesh(X, omega_xnew, omega_ynew):
     return X_int
 
 
-
-def get_slice_0(X):
-    """ Returns X[0,..,0, :, :]
-    """
-    if X.ndim == 2:
-        return X
-    else:
-        sz = X.shape
-        new_sz = (np.prod(sz[0:-2]), sz[-2], sz[-1])
-        return np.squeeze(np.reshape(X, sz)[0, :, :])
