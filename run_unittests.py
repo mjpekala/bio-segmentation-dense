@@ -89,10 +89,10 @@ class TestStuff(unittest.TestCase):
         # perfect estimate 
         #--------------------------------------------------
         lossPerfect = f_theano.eval({a : y_true, b : y_true})
-        self.assertTrue(0 < lossPerfect)  # loss will never quite reach zero
+        self.assertTrue(-1e-12 <= lossPerfect)  # the loss is generally non-negative
 
         lossTrivial = f_theano.eval({a : y_true, b : np.zeros(y_true.shape, dtype=np.float32)})
-        self.assertTrue(lossPerfect < lossTrivial)  # will never quite reach zero
+        self.assertTrue(lossPerfect < lossTrivial) 
 
         #--------------------------------------------------
         # If there are no class labels whatsoever, 1/N_labeled = inf
