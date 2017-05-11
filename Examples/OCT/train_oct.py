@@ -192,9 +192,9 @@ if __name__ == '__main__':
         # determine train/valid split for this fold
         #
         avail_folds = [x for x in range(n_folds) if x != test_fold]
-        train_folds = avail_folds[:-2]
+        train_folds = avail_folds[:-1]
         valid_fold = avail_folds[-1]
-        print('train folds: ', train_folds, ', valid fold(s): ', valid_fold, ', test fold(s): ' test_fold)
+        print('train folds: ', train_folds, ', valid fold(s): ', valid_fold, ', test fold(s): ', test_fold)
 
         train_slices = [x for x in range(X.shape[0]) if fold_id[x] in train_folds]
         valid_slices = [x for x in range(X.shape[0]) if fold_id[x] == valid_fold]
