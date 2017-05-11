@@ -232,7 +232,7 @@ if __name__ == '__main__':
  
         tic = time.time()
         train_model(X_train_s, Y_train_s, X_valid_s, Y_valid_s, 
-                    model_s, n_epochs=n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False)
+                    model_s, n_epochs=3*n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False)
         print('[info]: time to train "segmentation" model: %0.2f min' % ((time.time() - tic)/60.))
 
         #
