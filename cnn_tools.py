@@ -232,11 +232,16 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     Note: these are not epochs in the usual sense, since we randomly sample
     the data set (vs methodically marching through it)                
     """
+    assert(X_train.dtype == np.float32)
+    
     sz = model.input_shape[-2:]
     score_all = []
     n_classes = model.output_shape[1]
 
-    assert(X_train.dtype == np.float32)
+    # show some info about the training data
+    print('[train_model]: X_train is ', X_train.shape, X_train.dtype, np.min(X_train), np.max(X_train))
+    print('[train_model]: Y_train is ', Y_train.shape, Y_train.dtype, np.min(Y_train), np.max(Y_train))
+    
 
     for ii in range(n_epochs):
         # run one "epoch"
