@@ -7,5 +7,5 @@ train :
 
 
 clean :
-	\rm -f oct_segmentation_*npz
-	\rm -f oct_detection_*npz
+	\rm -f oct_segmentation_*.{npz,hdf5}
+	\rm -f oct_detection_*.{npz,hdf5}
