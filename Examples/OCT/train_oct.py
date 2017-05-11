@@ -41,8 +41,11 @@ def tian_load_data(mat_file):
     Y2 = np.transpose(Y2, [2, 0, 1])
 
     # assign slices to folds
+    # TODO: update if we learn anything about mapping of patients -> images
+    n_folds = 5
+    fold_id = np.mod(np.arange(X.shape[0]), n_folds)
     
-    return X, Y1, Y2
+    return X, Y1, Y2, fold_id
 
 
 
@@ -159,7 +162,7 @@ if __name__ == '__main__':
     
     # adjust this as needed for your system
     fn=os.path.expanduser('~/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat')
-    X, Y1, Y2 = tian_load_data(fn)
+    X, Y1, Y2, fold_id = tian_load_data(fn)
 
     # for now, we just use one of the truth sets
     Y = Y1
@@ -172,10 +175,6 @@ if __name__ == '__main__':
     # class labels for a "layer detection" problem
     Y_binary = np.copy(Y)
     Y_binary[Y_binary > 0] = 1
-
-    # assign data to folds.
-    # update if we learn anything about mapping of patients -> images
-    fold_id = np.mod(np.arange(X.shape[0]), n_folds)
 
     n_classes = np.sum(np.unique(Y) >= 0)
     print('Y native shape:   ', Y.shape)
