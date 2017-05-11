@@ -123,7 +123,7 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     y_hat = y_hat.clip(1e-6, 1 - 1e-6)
 
     # the categorical crossentropy loss
-    #loss = y_true * K.log(y_hat) + (1. - y_true) * K.log(1. - y_hat)
+    # ** assumes one-hot encoding and sum-to-one along class dimension **
     loss = K.sum(y_true * K.log(y_hat), axis=1)
 
     if w is not None:
