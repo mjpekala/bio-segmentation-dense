@@ -53,7 +53,7 @@ def print_generator(c, every_n_secs=60*2):
     """ Generator over a collection c that provides progress information (to stdout)
     """
     start_time = time.time()
-    last_chatter = -every_n_secs
+    last_chatter = 0 #-every_n_secs
 
     for idx, ci in enumerate(c):
         yield ci
