@@ -5,4 +5,5 @@ train :
 	THEANO_FLAGS='device=gpu2,floatX=float32' python train_epi.py
 
 clean :
-	\rm -f todo.txt
+	\rm -f U-Net_valid*npz
+	\rm -f U-Net_weights*hdf5
