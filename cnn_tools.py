@@ -269,7 +269,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         print('[train_model]: recent train loss: %0.3f' % np.mean(score_all[-20:]))
         print('[train_model]: acc on validation data:   %0.3f' % acc)
         
-        if n_classes == 2:
+        if n_classes == 2 and np.any(Yi_hat > 0):
             # easy to do an f1 score in binary case
             print('[train_model]: f1 on validation data:    %0.3f' % skm.f1_score(Y_valid.flatten(), Yi_hat.flatten()))
 
