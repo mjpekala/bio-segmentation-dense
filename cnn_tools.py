@@ -271,8 +271,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         
         if n_classes == 2:
             # easy to do an f1 score in binary case
-            pred = (Yi_hat_oh[:,1,:,:].flatten() >= 0.5).astype(np.int32)
-            print('[train_model]: f1 on validation data:    %0.3f' % skm.f1_score(Y_valid.flatten(), pred))
+            print('[train_model]: f1 on validation data:    %0.3f' % skm.f1_score(Y_valid.flatten(), Yi_hat.flatten()))
 
         # look at the distribution of class labels
         for ii in range(n_classes):
