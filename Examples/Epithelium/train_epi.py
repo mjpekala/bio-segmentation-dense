@@ -24,12 +24,7 @@ from cnn_tools import *
 from data_tools import *
 
 
-
-if __name__ == '__main__':
-    K.set_image_dim_ordering('th')
-    tile_size = (256, 256)
-    
-    # load raw data
+def load_epi_data(fn='epi.hdf5'):
     with h5py.File('epi.hdf5') as h5:
         X = h5['X'].value.astype(np.float32) / 255.
         Y = h5['Y'].value.astype(np.int32)
@@ -41,6 +36,17 @@ if __name__ == '__main__':
     # XXX: this could be selected more carefully
     train = np.arange(25)
     valid = np.arange(25,30)
+    test = np.arange(30,X.shape[0])
+
+    return X, Y, (train,valid,test)
+
+
+if __name__ == '__main__':
+    K.set_image_dim_ordering('th')
+    tile_size = (256, 256)
+    
+    # load raw data
+    X,Y,(train,valid,test) = load_epi_data()
         
     print('[info]: using Keras version:     %s' % str(keras.__version__))
     print('[info]: using backend:           %s' % str(K._BACKEND))
