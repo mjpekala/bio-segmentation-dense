@@ -31,8 +31,8 @@ if __name__ == '__main__':
     
     # load raw data
     with h5py.File('epi.hdf5') as h5:
-        X = h5['X'].value.astype(np.float32)
-        Y = h5['Y'].value
+        X = h5['X'].value.astype(np.float32) / 255.
+        Y = h5['Y'].value.astype(np.int32)
 
     X = X[:, np.newaxis, ...]  # TODO: add back 3 color channels?
     Y = Y[:, np.newaxis, ...]
@@ -44,8 +44,6 @@ if __name__ == '__main__':
         
     print('[info]: using Keras version:     %s' % str(keras.__version__))
     print('[info]: using backend:           %s' % str(K._BACKEND))
-    print('[info]: X train:                ', X[train,...].shape, X.dtype, np.min(X), np.max(X))
-    print('[info]: Y train:                ', Y[train,...].shape, Y.dtype, np.min(Y), np.max(Y))
     print('[info]: tile size:               %s' % str(tile_size))
 
     # train model
