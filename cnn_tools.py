@@ -284,27 +284,32 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
 
 
-def deploy_model(X, model):
-    """
-    X : a tensor of dimensions (n_examples, n_channels, n_rows, n_cols)
+def deploy_model(X, model, stride=None):
+    """ Runs a deep network on an unlabeled test data
 
-    Note: n_examples will be used as the minibatch size.
+       X    : a tensor of dimensions (n_examples, n_channels, n_rows, n_cols)
+      model : a Keras deep network
 
-    Note: we could be more sophisticated here and, instead of partitioning X,
-          calculate with some overlaps and average to mitigate edge effects.
+     Note: the code below uses n_examples as the mini-batch size (so the caller may want
+           to invoke this function multiple times for different subsets of slices)
     """
     # the only slight complication is that the spatial dimensions of X might
     # not be a multiple of the tile size.
-    sz = model.input_shape[-2:]
+    tile_n_rows, tile_n_cols = model.input_shape[-2:]  # "tile" size
+
+    if stride is None:
+        stride = min(tile_n_rows, tile_n_cols)
 
     Y_hat = None  # delay initialization until we know the # of classes
 
-    for rr in range(0, X.shape[-2], sz[0]):
-        ra = rr if rr+sz[0] < X.shape[-2] else X.shape[-2] - sz[0]
-        rb = ra+sz[0]
-        for cc in range(0, X.shape[-1], sz[1]):
-            ca = cc if cc+sz[1] < X.shape[-1] else X.shape[-1] - sz[-1]
-            cb = ca+sz[1]
+    for rr in range(0, X.shape[-2], stride):
+        # iterate first over rows
+        ra = min(rr, X.shape[-2] - tile_n_rows)
+        rb = ra + tile_n_rows
+        
+        for cc in range(0, X.shape[-1], stride):
+            ca = min(cc, X.shape[-1] - tile_n_cols)
+            cb = ca + tile_n_cols
             Y_hat_mb = model.predict(X[:, :, ra:rb, ca:cb])
 
             # create Y_hat if needed
@@ -312,6 +317,16 @@ def deploy_model(X, model):
                 Y_hat = np.zeros((X.shape[0], Y_hat_mb.shape[1], X.shape[2], X.shape[3]), dtype=Y_hat_mb.dtype)
 
             # store this mini-batch
-            Y_hat[:,:,ra:rb,ca:cb] = Y_hat_mb
+            #
+            # update: if the stride is finer than the tile size, only store the
+            # inner part of the tile (unless we are at the boundary)
+            #
+            store_whole_tile = (stride >= min(tile_n_rows, tile_n_cols)) or (ra == 0) or (ca == 0) or (rb == X.shape[-2]) or (cb == X.shape[-1])
+            if store_whole_tile:
+                Y_hat[:,:,ra:rb,ca:cb] = Y_hat_mb
+            else:
+                dr = int(tile_n_rows/2 - stride/2)
+                dc = int(tile_n_cols/2 - stride/2)
+                Y_hat[:,:,(ra+dr):(ra+dr+stride),(ca+dc):(ca+dc+stride)] = Y_hat_mb[:,:,dr:(dr+stride), dc:(dc+stride)]
 
     return Y_hat    
