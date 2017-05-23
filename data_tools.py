@@ -196,7 +196,24 @@ def random_crop(tensors, sz):
         X = tensors
         return X[..., ri:ri+sz[0], ci:ci+sz[1]]
 
- 
+
+
+def tile_generator(X, sz, offset=[0,0], stride=None):
+    n_rows, n_cols = X.shape[-2:]
+
+    if stride is None:
+        stride = np.array(sz)
+    if np.isscalar(stride):
+        stride = np.array([stride, stride])
+
+    for row in np.arange(start=offset[0], step=stride[0], stop=n_rows):
+        rr = min(row, n_rows - sz[0])
+        for col in np.arange(start=offset[1], step=stride[1], stop=n_cols):
+            cc = min(col, n_cols - sz[1])
+            
+            yield X[..., rr:(rr+sz[0]), cc:(cc+sz[1])] 
+
+            
     
 def apply_symmetry(tensors, op_idx=-1):
     """Implements synthetic data augmentation by randomly appling
