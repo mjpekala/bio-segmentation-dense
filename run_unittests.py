@@ -28,7 +28,7 @@ class TestStuff(unittest.TestCase):
         x = np.concatenate((xab,xcd), axis=0)
 
         gen = tile_generator(x, [n,n])
-        pieces = [x for x in gen]
+        pieces = [x[0] for x in gen]
 
         assert(len(pieces) == 4)
         assert(np.all(pieces[0] == xa))
@@ -37,12 +37,12 @@ class TestStuff(unittest.TestCase):
         assert(np.all(pieces[3] == xd))
 
         gen = tile_generator(x, [n,n], stride=int(n/2))
-        pieces = [x for x in gen]
+        pieces = [x[0] for x in gen]
         
         assert(len(pieces) == 16)
         
         gen = tile_generator(x, [n,n], offset=n)
-        pieces = [x for x in gen]
+        pieces = [x[0] for x in gen]
         assert(len(pieces) == 1)
         assert(np.all(pieces[0] == xd))
 
