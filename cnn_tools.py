@@ -118,7 +118,7 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
 
     # Normally y_hat is coming from a sigmoid (or other "squashing")
     # and therefore never reaches exactly 0 or 1 (so the call to log
-    # below is safe).  However, to be safe we call clip() here.
+    # below is safe).  However, out of paranoia, we call clip() here.
     y_hat = y_hat.clip(1e-9, 1 - 1e-9)
 
     # the categorical crossentropy loss
@@ -283,7 +283,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
 
 
-def deploy_model(X, model, stride=None):
+def deploy_model(X, model, two_pass=False):
     """ Runs a deep network on an unlabeled test data
 
        X    : a tensor of dimensions (n_examples, n_channels, n_rows, n_cols)
@@ -292,40 +292,22 @@ def deploy_model(X, model, stride=None):
      Note: the code below uses n_examples as the mini-batch size (so the caller may want
            to invoke this function multiple times for different subsets of slices)
     """
-    # the only slight complication is that the spatial dimensions of X might
-    # not be a multiple of the tile size.
-    tile_n_rows, tile_n_cols = model.input_shape[-2:]  # "tile" size
 
-    if stride is None:
-        stride = min(tile_n_rows, tile_n_cols)
+    tile_rows, tile_cols = model.input_shape[-2:]  # "tile" size
+    tile_gen = tile_generator(X, [tile_rows, tile_cols])
 
     Y_hat = None  # delay initialization until we know the # of classes
 
-    for rr in range(0, X.shape[-2], stride):
-        # iterate first over rows
-        ra = min(rr, X.shape[-2] - tile_n_rows)
-        rb = ra + tile_n_rows
+    # loop over all tiles in the image
+    for Xi, (rr,cc) in tile_gen:
+        Yi = model.predict(Xi)
         
-        for cc in range(0, X.shape[-1], stride):
-            ca = min(cc, X.shape[-1] - tile_n_cols)
-            cb = ca + tile_n_cols
-            Y_hat_mb = model.predict(X[:, :, ra:rb, ca:cb])
+        # create Y_hat if needed
+        if Y_hat is None:
+            Y_hat = np.zeros((X.shape[0], Yi.shape[1], X.shape[2], X.shape[3]), dtype=Yi.dtype)
 
-            # create Y_hat if needed
-            if Y_hat is None:
-                Y_hat = np.zeros((X.shape[0], Y_hat_mb.shape[1], X.shape[2], X.shape[3]), dtype=Y_hat_mb.dtype)
+        # store the result
+        Y_hat[:,:, rr:(rr+tile_rows), cc:(cc+tile_cols)] = Yi
+        
+    return Y_hat
 
-            # store this mini-batch
-            #
-            # update: if the stride is finer than the tile size, only store the
-            # inner part of the tile (unless we are at the boundary)
-            #
-            store_whole_tile = (stride >= min(tile_n_rows, tile_n_cols)) or (ra == 0) or (ca == 0) or (rb == X.shape[-2]) or (cb == X.shape[-1])
-            if store_whole_tile:
-                Y_hat[:,:,ra:rb,ca:cb] = Y_hat_mb
-            else:
-                dr = int(tile_n_rows/2 - stride/2)
-                dc = int(tile_n_cols/2 - stride/2)
-                Y_hat[:,:,(ra+dr):(ra+dr+stride),(ca+dc):(ca+dc+stride)] = Y_hat_mb[:,:,dr:(dr+stride), dc:(dc+stride)]
-
-    return Y_hat    
