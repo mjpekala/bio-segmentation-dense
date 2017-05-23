@@ -199,19 +199,32 @@ def random_crop(tensors, sz):
 
 
 def tile_generator(X, sz, offset=[0,0], stride=None):
+    """
+       sz := tile size, [#_rows, #_cols]
+       X  := A matrix or tensor of shape [..., rows, cols]
+       offset := a tuple [row_0, col_0]
+       stride := a tuple [delta_row, delta_col]
+    """
     n_rows, n_cols = X.shape[-2:]
+    tile_rows, tile_cols = sz
 
     if stride is None:
         stride = np.array(sz)
+
+    # convert scalar args to tuples, if needed
     if np.isscalar(stride):
         stride = np.array([stride, stride])
+    if np.isscalar(offset):
+        offset = np.array([offset, offset])
 
+    # loop over all tiles
     for row in np.arange(start=offset[0], step=stride[0], stop=n_rows):
-        rr = min(row, n_rows - sz[0])
+        rr = min(row, n_rows - tile_rows)
         for col in np.arange(start=offset[1], step=stride[1], stop=n_cols):
-            cc = min(col, n_cols - sz[1])
+            cc = min(col, n_cols - tile_cols)
             
-            yield X[..., rr:(rr+sz[0]), cc:(cc+sz[1])] 
+            xi = X[..., rr:(rr + tile_rows), cc:(cc + tile_cols)]
+            yield xi, (rr, cc)
 
             
     
