@@ -1,7 +1,7 @@
 # Dense Image Classification for Segmentation
 
 
-Some codes for segmenting images via per-pixel (or dense) classification.  The core idea is based on semantic segmentation [Long et al.] and we borrow the architecture from [Ronneberger et al.].  Currently this code assumes grayscale images and works for binary or multi-class problems.  Note this code was written in the author's spare time so YMMV.  Also, as with many things in this field, by the time you are reading this there may already be a better native implementation in Keras.
+This repository houses codes for segmenting images via per-pixel (or dense) classification.  The core idea is based on semantic segmentation [lon2015] and we adopt the architecture with skip connections proposed by [ron2015].  Currently this code assumes grayscale images and works for binary or multi-class problems.  Note this code was written in the author's spare time (while at UMD) so YMMV.  Also, as with many things in this field, by the time you are reading this there may already be a better native implementation in Keras.
 
 mjp, 2016
 (last updated April 2017)
@@ -29,8 +29,8 @@ Note that this code makes explicit assumptions about the order of data dimension
 
 ## References:
 
-1.  Long, Shelhamer, Darrell "Fully Convolutional Networks for Semantic Segmentation." CVPR 2015.
-2.  Ronneberger, Fischer, Brox "U-Net: Convolutional Networks for Biomedical Image Segmentation." 2015. https://arxiv.org/abs/1505.04597.
+1.  [lon2015] Long, Shelhamer, Darrell "Fully Convolutional Networks for Semantic Segmentation." CVPR 2015.
+2.  [ron2015] Ronneberger, Fischer, Brox "U-Net: Convolutional Networks for Biomedical Image Segmentation." 2015. https://arxiv.org/abs/1505.04597.
 3.  Jocic, Keras implementation of U-Net. https://github.com/jocicmarko/ultrasound-nerve-segmentation.
 
 
