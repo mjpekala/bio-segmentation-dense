@@ -7,7 +7,7 @@ __license__ = 'Apache 2.0'
 import unittest
 import numpy as np
 
-from data_tools import pixelwise_one_hot
+from data_tools import pixelwise_one_hot, tile_generator
 from cnn_tools import f1_score, pixelwise_ace_loss
 
 import theano
@@ -15,6 +15,38 @@ import theano
 
 
 class TestStuff(unittest.TestCase):
+    
+    def test_tile_generator(self):
+        n = 10
+        xa = np.ones((n,n))
+        xb = 2*np.ones((n,n))
+        xc = 3*np.ones((n,n))
+        xd = 4*np.ones((n,n))
+
+        xab = np.concatenate((xa,xb), axis=1)
+        xcd = np.concatenate((xc,xd), axis=1)
+        x = np.concatenate((xab,xcd), axis=0)
+
+        gen = tile_generator(x, [n,n])
+        pieces = [x for x in gen]
+
+        assert(len(pieces) == 4)
+        assert(np.all(pieces[0] == xa))
+        assert(np.all(pieces[1] == xb))
+        assert(np.all(pieces[2] == xc))
+        assert(np.all(pieces[3] == xd))
+
+        gen = tile_generator(x, [n,n], stride=int(n/2))
+        pieces = [x for x in gen]
+        
+        assert(len(pieces) == 16)
+        
+        gen = tile_generator(x, [n,n], offset=n)
+        pieces = [x for x in gen]
+        assert(len(pieces) == 1)
+        assert(np.all(pieces[0] == xd))
+
+        
     
     def test_f1_score(self):
         n_examples = 100
