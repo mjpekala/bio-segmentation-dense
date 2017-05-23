@@ -7,6 +7,10 @@
             http://onlinelibrary.wiley.com/doi/10.1002/jbio.201500239/full
 """
 
+# TODO: mirror edges and more disciplined sampling of space during training!
+# TODO: TV mod p penalizer??
+
+
 from __future__ import print_function
 
 __author__ = 'mjp, March 2017'
@@ -62,11 +66,12 @@ def tian_dense_labels(Y, n_rows):
 
       Our labels           Tian Semantics
      ------------         ----------------
-         0                  above surface 1 or below surface 11
+         0                  above surface 1
          1                  between surfaces 1 & 2
          2                  between surfaces 2 & 4
          3                  between surfaces 4 & 6
          4                  between surfaces 6 & 11
+         5                  below surface 11
     """
     n_slices, n_boundaries, n_cols = Y.shape
     assert(n_boundaries == 9)
@@ -86,6 +91,9 @@ def tian_dense_labels(Y, n_rows):
             
             region_6_11 = np.arange(Y[s,4,col], Y[s,7,col]).astype(np.int32)
             Y_dense[s,region_6_11,col] = 4
+
+            region_rest = np.arange(Y[s,7,col], n_rows-1).astype(np.int32)
+            Y_dense[s,region_rest,col] = 5
 
     return Y_dense
 
@@ -114,10 +122,12 @@ def tian_find_crops(Y_est, crop_pct):
     crops = np.zeros((n_slic, 2))
 
     for s in range(n_slic):
+        Y_est_s = Y_est[s,:,:]
+        
         # there may be better ways; for now, we convolve the marginal
         # sum of the estimated layer support with a uniform filter to
         # find the best set of rows to keep.
-        marginal = np.sum(Y_est[s,:,:], axis=1)
+        marginal = np.sum(Y_est_s, axis=1)
         response = np.convolve(marginal, box_filt, 'same')
 
         a = np.argmax(response) - n_rows_to_keep / 2
