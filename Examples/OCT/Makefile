@@ -3,7 +3,7 @@
 # mjp, may 2017
 
 train :
-	python train_oct.py
+	THEANO_FLAGS="device=gpu1,floatX=float32" python train_oct.py
 
 
 clean :
