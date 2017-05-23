@@ -308,6 +308,21 @@ def deploy_model(X, model, two_pass=False):
 
         # store the result
         Y_hat[:,:, rr:(rr+tile_rows), cc:(cc+tile_cols)] = Yi
+
+        
+    # optional: do another pass at a different offset (e.g. to clean up edge effects)
+    if two_pass:
+        tile_gen = tile_generator(X, [tile_rows, tile_cols], offset=[int(tile_rows/2), int(tile_cols/2)])
+        for Xi, (rr,cc) in tile_gen:
+            Yi = model.predict(Xi)
+
+            # the fraction of the interior to use could perhaps be a parameter.
+            frac_r, frac_c = int(tile_rows/10), int(tile_cols/10)
+            ra, ca = rr+frac_r, cc+frac_c
+            dr, dc = 8*frac_r, 8*frac_c
+            
+            # store (a subset of) the result
+            Y_hat[:, :, ra:(ra+dr), ca:(ca+dc)] = Yi[:, :, frac_r:(frac_r+dr), frac_c:(frac_c+dc)]
         
     return Y_hat
 
