@@ -134,6 +134,26 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
 
 
 
+def total_variation_loss(x):
+    """
+    adapted from: keras/examples/neural_style_transfer.py
+    """
+    assert K.ndim(x) == 4
+    n_rows = x.shape[-2]
+    n_cols = x.shape[-1]
+
+    a = K.square(x[:, :, :(n_rows-1), :(n_cols-1)] - x[:, :, 1:, :(n_cols-1)])
+    b = K.square(x[:, :, :(n_rows-1), :(n_cols-1)] - x[:, :, :(n_rows-1), 1:])
+
+    #if K.image_data_format() == 'channels_first':
+    #else:
+    #    a = K.square(x[:, :img_nrows - 1, :img_ncols - 1, :] - x[:, 1:, :img_ncols - 1, :])
+    #    b = K.square(x[:, :img_nrows - 1, :img_ncols - 1, :] - x[:, :img_nrows - 1, 1:, :])
+        
+    return K.sum(K.pow(a + b, 1.25))
+
+
+
 def create_unet(sz, n_classes=2, multi_label=False):
     """
       sz : a tuple specifying the input image size in the form:
@@ -237,6 +257,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     sz = model.input_shape[-2:]
     score_all = []
     n_classes = model.output_shape[1]
+    acc_best = -1
 
     # show some info about the training data
     print('[train_model]: X_train is ', X_train.shape, X_train.dtype, np.min(X_train), np.max(X_train))
@@ -254,10 +275,6 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
             loss, acc = model.train_on_batch(Xi, Yi)
             score_all.append(loss)
 
-        # save state
-        fn_out = '%s_weights_epoch%04d.hdf5' % (model.name, ii)
-        model.save_weights(fn_out)
-
         # evaluate performance on validation data
         Yi_hat_oh = deploy_model(X_valid, model)  # oh = one-hot
         np.savez('%s_valid_epoch%04d' % (model.name, ii), X=X_valid, Y=Y_valid, Y_hat=Yi_hat_oh, s=score_all)
@@ -265,7 +282,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         Yi_hat = np.argmax(Yi_hat_oh, axis=1);  Yi_hat = Yi_hat[:,np.newaxis,...]
         acc = 100. * np.sum(Yi_hat == Y_valid) / Y_valid.size
         net_prob = np.sum(Yi_hat_oh, axis=1)  # This should be very close to 1 everywhere
-        
+
         print('[train_model]: recent train loss: %0.3f' % np.mean(score_all[-20:]))
         print('[train_model]: acc on validation data:   %0.3f' % acc)
         
@@ -278,6 +295,12 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
             frac_ii_yhat = 1. * np.sum(Yi_hat_oh[:,ii,...]) / Y_valid.size # "prob mass" in class ii
             frac_ii_y = 1. * np.sum(Y_valid == ii) / Y_valid.size
             print('[train_model]:    frac y=%d:  %0.3f (%0.3f)' % (ii, frac_ii_yhat, frac_ii_y))
+
+        # save state when appropriate
+        if (acc > acc_best) or (ii == n_epochs-1):
+            fn_out = '%s_weights_epoch%04d.hdf5' % (model.name, ii)
+            model.save_weights(fn_out)
+            acc_best = acc
 
     return score_all
 
