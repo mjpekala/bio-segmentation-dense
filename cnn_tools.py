@@ -266,9 +266,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     print('[train_model]: Y_valid is ', Y_valid.shape, Y_valid.dtype, np.min(Y_valid), np.max(Y_valid))
     
 
-    for ii in range(n_epochs):
+    for e_idx in range(n_epochs):
         # run one "epoch"
-        print('\n[train_model]: starting "epoch" %d (of %d)' % (ii, n_epochs))
+        print('\n[train_model]: starting "epoch" %d (of %d)' % (e_idx, n_epochs))
         for jj in print_generator(range(n_mb_per_epoch)):
             Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz, xform)
             Yi = pixelwise_one_hot(Yi, n_classes)
@@ -296,11 +296,11 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
             print('[train_model]:    frac y=%d:  %0.3f (%0.3f)' % (ii, frac_ii_yhat, frac_ii_y))
 
         # save state when appropriate
-        if (acc > acc_best) or (ii == n_epochs-1):
-            fn_out = '%s_weights_epoch%04d.hdf5' % (model.name, ii)
+        if (acc > acc_best) or (e_idx == n_epochs-1):
+            fn_out = '%s_weights_epoch%04d.hdf5' % (model.name, e_idx)
             model.save_weights(fn_out)
             
-            np.savez('%s_valid_epoch%04d' % (model.name, ii), X=X_valid, Y=Y_valid, Y_hat=Yi_hat_oh, s=score_all)
+            np.savez('%s_valid_epoch%04d' % (model.name, e_idx), X=X_valid, Y=Y_valid, Y_hat=Yi_hat_oh, s=score_all)
             acc_best = acc
 
     return score_all
