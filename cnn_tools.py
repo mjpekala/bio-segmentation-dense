@@ -277,7 +277,6 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
         # evaluate performance on validation data
         Yi_hat_oh = deploy_model(X_valid, model)  # oh = one-hot
-        np.savez('%s_valid_epoch%04d' % (model.name, ii), X=X_valid, Y=Y_valid, Y_hat=Yi_hat_oh, s=score_all)
 
         Yi_hat = np.argmax(Yi_hat_oh, axis=1);  Yi_hat = Yi_hat[:,np.newaxis,...]
         acc = 100. * np.sum(Yi_hat == Y_valid) / Y_valid.size
@@ -300,6 +299,8 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         if (acc > acc_best) or (ii == n_epochs-1):
             fn_out = '%s_weights_epoch%04d.hdf5' % (model.name, ii)
             model.save_weights(fn_out)
+            
+            np.savez('%s_valid_epoch%04d' % (model.name, ii), X=X_valid, Y=Y_valid, Y_hat=Yi_hat_oh, s=score_all)
             acc_best = acc
 
     return score_all
