@@ -156,6 +156,25 @@ class TestStuff(unittest.TestCase):
         self.assertTrue(loss2 < loss1)
 
 
+    def test_monotonic_losses(self):
+        y_true = np.zeros((5, 1, 10, 10), dtype=np.float32)
+        for ii in np.arange(y_true.shape[3]):
+            y_true[:,:,:,ii] = np.arange(y_true.shape[2])
+            
+        y_true_oh = pixelwise_one_hot(y_true, 10).astype(np.float32)
+        
+        # Note: we assume theano backend here
+        y = theano.tensor.tensor4('y_true')
+        yh = theano.tensor.tensor4('y_hat')
+
+        loss_mono_y_th = ct.monotonic_in_row_loss(y, yh)
+        
+        out = loss_mono_y_th.eval({y : y_true_oh, yh : y_true_oh})
+
+        self.assertTrue(out == 0)
+
+        # TODO: more tests here
+
         
     def test_composite_loss(self):
         y_true_raw = np.random.randint(low=0, high=10, size=(100, 1, 32, 32))
@@ -165,10 +184,8 @@ class TestStuff(unittest.TestCase):
         y = theano.tensor.tensor4('y_true')
         yh = theano.tensor.tensor4('y_hat')
 
+        # These two should be equivalent, obviously
         loss_ace_th = ct.pixelwise_ace_loss(y, yh)
-        loss_mono_y_th = ct.monotonic_in_row_loss(y, yh)
-
-        # This should be equivalent to loss_ace_th
         loss_2 = ct.make_composite_loss(y, yh, ct.pixelwise_ace_loss, ct.pixelwise_ace_loss, 0.5, 0.5)
 
         print(loss_2)
@@ -183,9 +200,6 @@ class TestStuff(unittest.TestCase):
             loss_b = loss_2.eval({y : y_true_oh, yh : y_hat_oh})
             
             self.assertTrue(np.abs(loss_a - loss_b) < 1e-3)
-
-
-
 
 
 
