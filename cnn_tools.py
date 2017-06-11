@@ -163,15 +163,22 @@ def monotonic_in_row_loss(y_true, y_hat):
     n_rows = y_hat.shape[-2]
     n_cols = y_hat.shape[-1]
 
+    # convert one-hot into class estimates.
+    y_hat_flat = y_hat.argmax(axis=1, keepdims=False)
+
     # if class labels are increasing down the row dimension, then we
     # want the first order difference to be non-negative.
-    diff = y_hat[:, :, 1:n_rows, :] - y_hat[:,:, :(n_rows-1), :]
+    diff = y_hat_flat[:, 1:n_rows, :] - y_hat_flat[:, :(n_rows-1), :]
 
     # here we need to decide if the magnitude of the difference is relevant.
     diff = K.clip(diff, -np.Inf, 0)
     # diff = K.clip(dff, -1, 0)
 
-    return K.sum(K.square(diff))
+    # here we do something meaningless to y_true so that Theano
+    # doesn't complain about unused nodes in the computational graph.
+    zero = K.sum(0 * y_true.flatten())
+
+    return K.sum(K.square(diff)) + zero
 
     
 
