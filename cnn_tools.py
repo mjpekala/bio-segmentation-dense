@@ -3,8 +3,9 @@
 
 
   Conventions:
-   o I implicitly assume 'th' ordering throughout; that is, I expect objects to
-     have the shape:
+
+   o I implicitly assume 'th' (or "channels first") ordering
+     throughout; that is, I expect objects to have the shape:
 
            (#_objects, #_channels, #_rows, #_cols)
 
@@ -138,6 +139,7 @@ def total_variation_loss(x):
     """
     adapted from: keras/examples/neural_style_transfer.py
     """
+    raise RuntimeError('still under construction');
     assert K.ndim(x) == 4
     n_rows = x.shape[-2]
     n_cols = x.shape[-1]
@@ -154,7 +156,32 @@ def total_variation_loss(x):
 
 
 
-def create_unet(sz, n_classes=2, multi_label=False):
+def monotonic_in_row_loss(y_true, y_hat):
+    """ Encourages class labels to be strictly increasing in the row dimension.
+    """
+    assert K.ndim(y_hat) == 4
+    n_rows = y_hat.shape[-2]
+    n_cols = y_hat.shape[-1]
+
+    # if class labels are increasing down the row dimension, then we
+    # want the first order difference to be non-negative.
+    diff = y_hat[:, :, 1:n_rows, :] - y_hat[:,:, :(n_rows-1), :]
+
+    # here we need to decide if the magnitude of the difference is relevant.
+    diff = K.clip(diff, -np.Inf, 0)
+    # diff = K.clip(dff, -1, 0)
+
+    return K.sum(K.square(diff))
+
+    
+
+def make_composite_loss(y_true, y_hat, loss_a, loss_b, w_a, w_b):
+    return loss_a(y_true, y_hat) * w_a + loss_b(y_true, y_hat) * w_b
+
+
+
+
+def create_unet(sz, n_classes=2, multi_label=False, f_loss=pixelwise_ace_loss):
     """
       sz : a tuple specifying the input image size in the form:
            (# channels, # rows, # columns)
@@ -239,7 +266,7 @@ def create_unet(sz, n_classes=2, multi_label=False):
 
     # mjp: my f1_score is only for binary case; use acc for now
     #model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_ace_loss, metrics=[f1_score])
-    model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_ace_loss, metrics=['acc'])
+    model.compile(optimizer=Adam(lr=1e-3), loss=f_loss, metrics=['acc'])
 
     model.name = 'U-Net'
     return model
