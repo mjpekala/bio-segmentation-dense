@@ -8,6 +8,8 @@ import unittest
 import numpy as np
 
 from data_tools import pixelwise_one_hot, tile_generator
+
+import cnn_tools as ct
 from cnn_tools import f1_score, pixelwise_ace_loss
 
 import theano
@@ -152,7 +154,35 @@ class TestStuff(unittest.TestCase):
         loss1 = f_theano.eval({a : y_true, b : y_hat})
         loss2 = f_theano.eval({a : y_true_u, b : y_hat})
         self.assertTrue(loss2 < loss1)
+
+
         
+    def test_composite_loss(self):
+        y_true_raw = np.random.randint(low=0, high=10, size=(100, 1, 32, 32))
+        y_true_oh = pixelwise_one_hot(y_true_raw, 10).astype(np.float32)
+        
+        # Note: we assume theano backend here
+        y = theano.tensor.tensor4('y_true')
+        yh = theano.tensor.tensor4('y_hat')
+
+        loss_ace_th = ct.pixelwise_ace_loss(y, yh)
+        loss_mono_y_th = ct.monotonic_in_row_loss(y, yh)
+
+        # This should be equivalent to loss_ace_th
+        loss_2 = ct.make_composite_loss(y, yh, ct.pixelwise_ace_loss, ct.pixelwise_ace_loss, 0.5, 0.5)
+
+        print(loss_2)
+
+        for ii in range(10):
+            if ii > 0:
+                y_hat_oh = np.random.randint(low=0, high=1, size=y_true_oh.shape).astype(np.float32)
+            else:
+                y_hat_oh = y_true_oh
+                
+            loss_a = loss_ace_th.eval({y : y_true_oh, yh : y_hat_oh})
+            loss_b = loss_2.eval({y : y_true_oh, yh : y_hat_oh})
+            
+            self.assertTrue(np.abs(loss_a - loss_b) < 1e-3)
 
 
 
