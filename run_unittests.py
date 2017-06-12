@@ -201,6 +201,11 @@ class TestStuff(unittest.TestCase):
             
             self.assertTrue(np.abs(loss_a - loss_b) < 1e-3)
 
+            
+        # of course, the intent is to combine different loss functions
+        # this next bit just makes sure the code doesn't crash (doesn't check correctness of result)
+        loss_2b = ct.make_composite_loss(y, yh, ct.pixelwise_ace_loss, ct.monotonic_in_row_loss, 0.5, 0.5)
+        foo = loss_2b.eval({y : y_true_oh, yh : y_hat_oh})
 
 
 if __name__ == '__main__':
