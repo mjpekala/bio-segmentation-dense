@@ -284,8 +284,8 @@ def ex_monotonic_loss(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./
         # custom loss function
         #
         loss = partial(ct.make_composite_loss,
-                           loss_a=ct.pixelwise_ace_loss, w_a=0.5,
-                           loss_b=ct.monotonic_in_row_loss, w_b=.5)
+                           loss_a=ct.pixelwise_ace_loss, w_a=0.4,
+                           loss_b=ct.monotonic_in_row_loss, w_b=.6)
         loss.__name__ = 'custom loss function'  # Keras checks this for something
 
         #
@@ -306,7 +306,7 @@ def ex_monotonic_loss(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./
         # Deploy
         # Note we evaluate the whole volume but evaluate performance only on the test subset.
         #
-        Y_hat = ct.deploy_model(X, model)
+        Y_hat = ct.deploy_model(X, model, two_pass=True)
         Y_hat = np.argmax(Y_hat, axis=1)
         acc_test = 100. * np.sum(Y_hat[test_slices,...] == np.squeeze(Y[test_slices,...])) / Y_hat[test_slices,...].size
 
@@ -344,6 +344,13 @@ if __name__ == '__main__':
     X = X[:, np.newaxis, :, :].astype(np.float32)
     Y = Y[:, np.newaxis, :, :].astype(np.float32)
 
+    # some of the borders look bad (missing data but extrapolated labels, etc.).
+    # to compensate somewhat, we'll crop away some columns
+    if True:
+        snip_lr = 10
+        print('snipping %d columns from both edges!!' % snip_lr)
+        X = X[...,snip_lr:-snip_lr]
+        Y = Y[...,snip_lr:-snip_lr]
 
     n_classes = np.sum(np.unique(Y) >= 0)
     
