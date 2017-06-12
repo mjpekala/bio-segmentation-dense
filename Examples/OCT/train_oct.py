@@ -319,7 +319,7 @@ def ex_monotonic_loss(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./
         
         fn = '%s_deploy_final' % (model.name)
         fn = os.path.join(out_dir, fn)
-        np.savez(fn, X=X, Y=Y, Y_hat=Yi_hat, test_slices=test_slices)
+        np.savez(fn, X=X, Y=Y, Y_hat=Y_hat, test_slices=test_slices)
 
 
 
