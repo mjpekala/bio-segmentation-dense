@@ -306,11 +306,11 @@ def ex_monotonic_loss(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./
         # Deploy
         # Note we evaluate the whole volume but evaluate performance only on the test subset.
         #
-        Y_hat_s = ct.deploy_model(X, model_s)
-        Y_hat_s = np.argmax(Y_hat_s, axis=1)
-        acc_test = 100. * np.sum(Y_hat_s[test_slices,...] == np.squeeze(Y[test_slices,...])) / Y_hat_s[test_slices,...].size
+        Y_hat = ct.deploy_model(X, model)
+        Y_hat = np.argmax(Y_hat, axis=1)
+        acc_test = 100. * np.sum(Y_hat[test_slices,...] == np.squeeze(Y[test_slices,...])) / Y_hat[test_slices,...].size
 
-        C = confusion_matrix(Y[test_slices,...].flatten(), Y_hat_s[test_slices,...].flatten())
+        C = confusion_matrix(Y[test_slices,...].flatten(), Y_hat[test_slices,...].flatten())
         acc_per_class = 100. * np.diag(C) / np.sum(C,axis=1)
 
         print('acc test (aggregate): ', acc_test)
