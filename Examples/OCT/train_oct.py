@@ -18,6 +18,7 @@ __license__ = 'Apache 2.0'
 
 
 import os, sys, time
+from functools import partial
 
 import numpy as np
 from scipy.io import loadmat
@@ -25,9 +26,10 @@ from sklearn.metrics import confusion_matrix
 
 np.random.seed(9999) # before importing Keras...
 from keras import backend as K
+import theano
 
 sys.path.append('../..')
-from cnn_tools import create_unet, train_model, deploy_model
+import cnn_tools as ct
 from data_tools import *
 
 
@@ -159,45 +161,31 @@ def _crop_rows(X, crops):
     return np.concatenate(X_out, axis=0)
 
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# The following functions run various experiments
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-if __name__ == '__main__':
-    K.set_image_dim_ordering('th')
-    tile_size = (256, 256)
-    n_folds = 5
-    n_epochs = 20  # TODO: base this on validation performance 
+class Tee(object):
+    def __init__(self, fn='logfile.txt'):
+        self.stdout = sys.stdout
+        self.logfile = open(fn, 'a')
 
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Load and preprocess data
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
-    # adjust this as needed for your system
-    fn=os.path.expanduser('~/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat')
-    X, Y1, Y2, fold_id = tian_load_data(fn)
+    def write(self, message):
+        self.stdout.write(message)
+        self.logfile.write(message)
 
-    # for now, we just use one of the truth sets
-    Y = Y1
-    Y = tian_dense_labels(Y, X.shape[1])
+    def flush(self):
+        pass # for python 3, evidently
+        
 
-    # add "channel" dimension and change to float32
-    X = X[:, np.newaxis, :, :].astype(np.float32)
-    Y = Y[:, np.newaxis, :, :].astype(np.float32)
+        
+def ex_detect_then_segment(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./Ex_Detect_and_Segment'):
 
     # class labels for a "layer detection" problem
     Y_binary = np.copy(Y)
-    Y_binary[Y_binary > 0] = 1
+    Y_binary[Y_binary > 0 and Y_binary < 5] = 1  # see tien_dense_labels()
 
-    n_classes = np.sum(np.unique(Y) >= 0)
-    print('Y native shape:   ', Y.shape)
-    print('class labels:     ', str(np.unique(Y)))
-    for yi in np.unique(Y):
-        print(' class %d fraction: %0.3f' % (yi, 1.*np.sum(Y==yi)/Y.size))
-    print('pct missing:       %0.2f' % (100. * np.sum(Y < 0) / Y.size))
-    print('X :', X.shape, np.min(X), np.max(X), X.dtype)
-
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # run some experiments
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
     for test_fold in range(n_folds):
         if test_fold > 0: break # TEMP TEMP TEMP!! just for quick testing!
             
@@ -216,17 +204,19 @@ if __name__ == '__main__':
         #
         # train and deploy a model for the "layer detection" problem
         #
-        model = create_unet((1, tile_size[0], tile_size[1]), 2)
+        model = ct.create_unet((1, tile_size[0], tile_size[1]), 2)
         model.name = 'oct_detection_fold%d' % test_fold
         
         tic = time.time()
-        train_model(X[train_slices,...], Y_binary[train_slices,...],
-                    X[valid_slices,...], Y_binary[valid_slices,...],
-                    model, n_epochs=n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False)
+        ct.train_model(X[train_slices,...], Y_binary[train_slices,...],
+                       X[valid_slices,...], Y_binary[valid_slices,...],
+                       model, n_epochs=n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False,
+                       out_dir=out_dir)
+        
         print('[info]: time to train "detection" model: %0.2f min' % ((time.time() - tic)/60.))
 
         tv_slices = [x for x in range(X.shape[0]) if fold_id[x] in train_folds + [valid_fold,]]
-        Y_hat_layers = deploy_model(X[tv_slices,...], model)
+        Y_hat_layers = ct.deploy_model(X[tv_slices,...], model)
         Y_hat_layers = Y_hat_layers[:,1,:,:] # keep only the postive class estimate
 
         #
@@ -238,12 +228,13 @@ if __name__ == '__main__':
         X_valid_s = _crop_rows(X[valid_slices, ...], crops)
         Y_valid_s = _crop_rows(Y[valid_slices, ...], crops)
 
-        model_s = create_unet((1, 128, 128), n_classes)  # note tile size change
+        model_s = ct.create_unet((1, 128, 128), n_classes)  # note tile size change
         model_s.name = 'oct_segmentation_fold%d' % test_fold
  
         tic = time.time()
-        train_model(X_train_s, Y_train_s, X_valid_s, Y_valid_s, 
-                    model_s, n_epochs=4*n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False)
+        ct.train_model(X_train_s, Y_train_s, X_valid_s, Y_valid_s, 
+                       model_s, n_epochs=n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False,
+                       out_dir=out_dir)
         print('[info]: time to train "segmentation" model: %0.2f min' % ((time.time() - tic)/60.))
 
         #
@@ -251,7 +242,7 @@ if __name__ == '__main__':
         #
 
         # TODO: some combo of model and model_s may be needed??
-        Y_hat_s = deploy_model(X, model_s)
+        Y_hat_s = ct.deploy_model(X, model_s)
         Y_hat_s = np.argmax(Y_hat_s, axis=1)
         acc_test = 100. * np.sum(Y_hat_s[test_slices,...] == np.squeeze(Y[test_slices,...])) / Y_hat_s[test_slices,...].size
 
@@ -261,3 +252,109 @@ if __name__ == '__main__':
         print('acc test (aggregate): ', acc_test)
         print('acc test (per-class): ', acc_per_class)
         print(C)
+
+
+        
+def ex_monotonic_loss(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./Ex_Mono_Labels'):
+    """ Single classifier that penalizes out-of-order class labels along vertical dimension.
+    """
+
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+
+    n_classes = len(np.unique(Y.flatten()))
+    sys.stdout = Tee(os.path.join(out_dir, 'logfile.txt'))
+    
+    for test_fold in range(n_folds):
+        if test_fold > 0: break # TEMP only run one fold for now while testing
+            
+        #
+        # determine train/valid split for this fold
+        #
+        avail_folds = [x for x in range(n_folds) if x != test_fold]
+        train_folds = avail_folds[:-1]
+        valid_fold = avail_folds[-1]
+        print('train folds: ', train_folds, ', valid fold(s): ', valid_fold, ', test fold(s): ', test_fold)
+
+        train_slices = [x for x in range(X.shape[0]) if fold_id[x] in train_folds]
+        valid_slices = [x for x in range(X.shape[0]) if fold_id[x] == valid_fold]
+        test_slices  = [x for x in range(X.shape[0]) if fold_id[x] == test_fold]
+
+        # 
+        # custom loss function
+        #
+        loss = partial(ct.make_composite_loss,
+                           loss_a=ct.pixelwise_ace_loss, w_a=0.5,
+                           loss_b=ct.monotonic_in_row_loss, w_b=.5)
+        loss.__name__ = 'custom loss function'  # Keras checks this for something
+
+        #
+        # create & train model
+        #
+        model = ct.create_unet((1, tile_size[0], tile_size[1]), n_classes, f_loss=loss)
+        model.name = 'oct_seg_fold%d' % test_fold
+
+        tic = time.time()
+        ct.train_model(X[train_slices,...], Y[train_slices,...],
+                       X[valid_slices,...], Y[valid_slices,...],
+                       model, n_epochs=n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False,
+                       out_dir=out_dir)
+        
+        print('[info]: time to train model: %0.2f min' % ((time.time() - tic)/60.))
+
+        #
+        # Deploy
+        # Note we evaluate the whole volume but evaluate performance only on the test subset.
+        #
+        Y_hat_s = ct.deploy_model(X, model_s)
+        Y_hat_s = np.argmax(Y_hat_s, axis=1)
+        acc_test = 100. * np.sum(Y_hat_s[test_slices,...] == np.squeeze(Y[test_slices,...])) / Y_hat_s[test_slices,...].size
+
+        C = confusion_matrix(Y[test_slices,...].flatten(), Y_hat_s[test_slices,...].flatten())
+        acc_per_class = 100. * np.diag(C) / np.sum(C,axis=1)
+
+        print('acc test (aggregate): ', acc_test)
+        print('acc test (per-class): ', acc_per_class)
+        print(C)
+
+
+
+        
+if __name__ == '__main__':
+    K.set_image_dim_ordering('th')
+    n_folds = 5
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Load and preprocess data
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    # adjust this as needed for your system
+    fn=os.path.expanduser('~/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat')
+    X, Y1, Y2, fold_id = tian_load_data(fn)
+
+    # for now, we just use one set of annotations 
+    Y = Y1
+    Y = tian_dense_labels(Y, X.shape[1])
+
+    # add "channel" dimension and change to float32
+    X = X[:, np.newaxis, :, :].astype(np.float32)
+    Y = Y[:, np.newaxis, :, :].astype(np.float32)
+
+
+    n_classes = np.sum(np.unique(Y) >= 0)
+    
+    print('Y native shape:   ', Y.shape)
+    print('class labels:     ', str(np.unique(Y)))
+    for yi in np.unique(Y):
+        print(' class %d fraction: %0.3f' % (yi, 1.*np.sum(Y==yi)/Y.size))
+    print('pct missing:       %0.2f' % (100. * np.sum(Y < 0) / Y.size))
+    print('X :', X.shape, np.min(X), np.max(X), X.dtype)
+
+    
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Run some experiment
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    if False:
+        ex_detect_then_segment(X, Y, fold_id)
+    else:
+        ex_monotonic_loss(X, Y, fold_id)
