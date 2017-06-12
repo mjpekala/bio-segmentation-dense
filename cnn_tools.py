@@ -33,6 +33,7 @@ __license__ = 'Apache 2.0'
 
 import time
 
+import os
 import numpy as np
 
 from keras.models import Model
@@ -183,6 +184,7 @@ def monotonic_in_row_loss(y_true, y_hat):
     
 
 def make_composite_loss(y_true, y_hat, loss_a, loss_b, w_a, w_b):
+    """ Constructs a linear combination of two loss functions."""
     return loss_a(y_true, y_hat) * w_a + loss_b(y_true, y_hat) * w_b
 
 
@@ -281,7 +283,7 @@ def create_unet(sz, n_classes=2, multi_label=False, f_loss=pixelwise_ace_loss):
 
 
 def train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=30, n_mb_per_epoch=25, mb_size=30, xform=True):
+                n_epochs=30, n_mb_per_epoch=25, mb_size=30, xform=True, out_dir='.'):
     """
     Note: these are not epochs in the usual sense, since we randomly sample
     the data set (vs methodically marching through it)                
@@ -298,7 +300,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     print('[train_model]: Y_train is ', Y_train.shape, Y_train.dtype, np.min(Y_train), np.max(Y_train))
     print('[train_model]: X_valid is ', X_valid.shape, X_valid.dtype, np.min(X_valid), np.max(X_valid))
     print('[train_model]: Y_valid is ', Y_valid.shape, Y_valid.dtype, np.min(Y_valid), np.max(Y_valid))
-    
+
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
 
     for e_idx in range(n_epochs):
         # run one "epoch"
@@ -332,9 +336,11 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         # save state when appropriate
         if (acc > acc_best) or (e_idx == n_epochs-1):
             fn_out = '%s_weights_epoch%04d.hdf5' % (model.name, e_idx)
-            model.save_weights(fn_out)
-            
-            np.savez('%s_valid_epoch%04d' % (model.name, e_idx), X=X_valid, Y=Y_valid, Y_hat=Yi_hat_oh, s=score_all)
+            model.save_weights(os.path.join(out_dir, fn_out))
+
+            fn = '%s_valid_epoch%04d' % (model.name, e_idx)
+            fn = os.path.join(out_dir, fn)
+            np.savez(fn, X=X_valid, Y=Y_valid, Y_hat=Yi_hat_oh, s=score_all)
             acc_best = acc
 
     return score_all
