@@ -316,6 +316,10 @@ def ex_monotonic_loss(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./
         print('acc test (aggregate): ', acc_test)
         print('acc test (per-class): ', acc_per_class)
         print(C)
+        
+        fn = '%s_deploy_final' % (model.name)
+        fn = os.path.join(out_dir, fn)
+        np.savez(fn, X=X, Y=Y, Y_hat=Yi_hat, test_slices=test_slices)
 
 
 
