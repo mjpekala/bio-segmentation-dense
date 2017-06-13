@@ -308,7 +308,8 @@ def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_Mono_La
 
         #
         # Deploy
-        # Note we evaluate the whole volume but evaluate performance only on the test subset.
+        # Note: we evaluate the whole volume but evaluate performance only on the test subset.
+        # Note: we evaluate the volume one slice at a time to avoid memory issues.
         #
         Y_hat = [ct.deploy_model(X[ [ii,],...], model, two_pass=True) for ii in range(X.shape[0])]
         Y_hat = np.concatenate(Y_hat, axis=0)
