@@ -258,7 +258,7 @@ def ex_detect_then_segment(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_De
 
 
         
-def ex_monotonic_loss(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./Ex_Mono_Labels'):
+def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_Mono_Labels'):
     """ Single classifier that penalizes out-of-order class labels along vertical dimension.
     """
 
@@ -293,6 +293,7 @@ def ex_monotonic_loss(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./
 
         #
         # create & train model
+        # Note: I reduced the mini-batch size since the tiles are larger now.
         #
         model = ct.create_unet((1, tile_size[0], tile_size[1]), n_classes, f_loss=loss)
         model.name = 'oct_seg_fold%d' % test_fold
@@ -300,7 +301,7 @@ def ex_monotonic_loss(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./
         tic = time.time()
         ct.train_model(X[train_slices,...], Y[train_slices,...],
                        X[valid_slices,...], Y[valid_slices,...],
-                       model, n_epochs=n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False,
+                       model, n_epochs=n_epochs, mb_size=2, n_mb_per_epoch=25, xform=False,
                        out_dir=out_dir)
         
         print('[info]: time to train model: %0.2f min' % ((time.time() - tic)/60.))
@@ -330,7 +331,7 @@ def ex_monotonic_loss(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./
 if __name__ == '__main__':
     K.set_image_dim_ordering('th')
     n_folds = 5
-    tile_size = 512
+    tile_size = (512,512)
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Load and preprocess data
@@ -345,7 +346,7 @@ if __name__ == '__main__':
     Y = tian_dense_labels(Y, X.shape[1])
 
     # pad vertical extent to a power of 2
-    delta_row = tile_size - X.shape[1]
+    delta_row = tile_size[0] - X.shape[1]
     pad = np.ones((X.shape[0], delta_row, X.shape[2]), dtype=X.dtype)
     X = np.concatenate((X, 0*pad), axis=1)
     Y = np.concatenate((Y, 5*pad), axis=1)
@@ -378,4 +379,4 @@ if __name__ == '__main__':
     if False:
         ex_detect_then_segment(X, Y, fold_id)
     else:
-        ex_monotonic_loss(X, Y, fold_id, tile_size=(tile_size, tile_size))
+        ex_monotonic_loss(X, Y, fold_id, tile_size=tile_size)
