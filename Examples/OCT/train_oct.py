@@ -78,6 +78,9 @@ def tian_dense_labels(Y, n_rows):
     n_slices, n_boundaries, n_cols = Y.shape
     assert(n_boundaries == 9)
 
+    # make sure values are all integers
+    Y = np.round(Y)
+
     Y_dense = np.zeros((n_slices, n_rows, n_cols), dtype=np.int32)
 
     for s in range(n_slices):
@@ -94,7 +97,7 @@ def tian_dense_labels(Y, n_rows):
             region_6_11 = np.arange(Y[s,4,col], Y[s,7,col]).astype(np.int32)
             Y_dense[s,region_6_11,col] = 4
 
-            region_rest = np.arange(Y[s,7,col], n_rows-1).astype(np.int32)
+            region_rest = np.arange(Y[s,7,col], n_rows).astype(np.int32)
             Y_dense[s,region_rest,col] = 5
 
     return Y_dense
@@ -179,7 +182,7 @@ class Tee(object):
         
 
         
-def ex_detect_then_segment(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./Ex_Detect_and_Segment'):
+def ex_detect_then_segment(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_Detect_and_Segment'):
 
     # class labels for a "layer detection" problem
     Y_binary = np.copy(Y)
@@ -327,6 +330,7 @@ def ex_monotonic_loss(X, Y, folds, tile_size=(256,256), n_epochs=25, out_dir='./
 if __name__ == '__main__':
     K.set_image_dim_ordering('th')
     n_folds = 5
+    tile_size = 512
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Load and preprocess data
@@ -339,6 +343,12 @@ if __name__ == '__main__':
     # for now, we just use one set of annotations 
     Y = Y1
     Y = tian_dense_labels(Y, X.shape[1])
+
+    # pad vertical extent to a power of 2
+    delta_row = tile_size - X.shape[1]
+    pad = np.ones((X.shape[0], delta_row, X.shape[2]), dtype=X.dtype)
+    X = np.concatenate((X, 0*pad), axis=1)
+    Y = np.concatenate((Y, 5*pad), axis=1)
 
     # add "channel" dimension and change to float32
     X = X[:, np.newaxis, :, :].astype(np.float32)
@@ -368,4 +378,4 @@ if __name__ == '__main__':
     if False:
         ex_detect_then_segment(X, Y, fold_id)
     else:
-        ex_monotonic_loss(X, Y, fold_id)
+        ex_monotonic_loss(X, Y, fold_id, tile_size=(tile_size, tile_size))
