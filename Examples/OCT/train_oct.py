@@ -324,8 +324,8 @@ def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex_Mono_L
         # custom loss function
         #
         loss = partial(ct.make_composite_loss,
-                           loss_a=ct.pixelwise_ace_loss, w_a=0.4,
-                           loss_b=ct.monotonic_in_row_loss, w_b=.6)
+                           loss_a=ct.pixelwise_ace_loss, w_a=0.1,
+                           loss_b=ct.monotonic_in_row_loss, w_b=1)
         loss.__name__ = 'custom loss function'  # Keras checks this for something
 
         #
