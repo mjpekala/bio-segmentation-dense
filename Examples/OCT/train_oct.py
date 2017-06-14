@@ -30,7 +30,7 @@ import theano
 
 sys.path.append('../..')
 import cnn_tools as ct
-from data_tools import *
+import data_tools as dt
 
 
 
@@ -298,10 +298,13 @@ def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=50, out_dir='./Ex_Mono_La
         model = ct.create_unet((1, tile_size[0], tile_size[1]), n_classes, f_loss=loss)
         model.name = 'oct_seg_fold%d' % test_fold
 
+        f_augment = partial(dt.random_minibatch, p_fliplr=.5)
+
         tic = time.time()
         ct.train_model(X[train_slices,...], Y[train_slices,...],
                        X[valid_slices,...], Y[valid_slices,...],
-                       model, n_epochs=n_epochs, mb_size=2, n_mb_per_epoch=25, xform=False,
+                       model, n_epochs=n_epochs, mb_size=2, n_mb_per_epoch=25,
+                       f_augment=f_augment,
                        out_dir=out_dir)
         
         print('[info]: time to train model: %0.2f min' % ((time.time() - tic)/60.))
