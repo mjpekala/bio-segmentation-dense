@@ -325,7 +325,7 @@ def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex_Mono_L
         #
         loss = partial(ct.make_composite_loss,
                            loss_a=ct.pixelwise_ace_loss, w_a=0.1,
-                           loss_b=ct.monotonic_in_row_loss, w_b=1)
+                           loss_b=ct.monotonic_in_row_loss, w_b=0.9)
         loss.__name__ = 'custom loss function'  # Keras checks this for something
 
         #
@@ -335,6 +335,7 @@ def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex_Mono_L
         model = ct.create_unet((1, tile_size[0], tile_size[1]), n_classes, f_loss=loss)
         model.name = 'oct_seg_fold%d' % test_fold
 
+        # TODO: add some kind of intensity augmentation?  we seem to suffer in the darker regions...
         f_augment = partial(dt.random_minibatch, p_fliplr=.5, f_upstream=tian_shift_updown)
 
         tic = time.time()
