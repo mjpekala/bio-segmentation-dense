@@ -283,7 +283,7 @@ def create_unet(sz, n_classes=2, multi_label=False, f_loss=pixelwise_ace_loss):
 
 
 def train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=30, n_mb_per_epoch=25, mb_size=30, xform=True, out_dir='.'):
+                n_epochs=30, n_mb_per_epoch=25, mb_size=30, f_augment=random_minibatch, out_dir='.'):
     """
     Note: these are not epochs in the usual sense, since we randomly sample
     the data set (vs methodically marching through it)                
@@ -309,7 +309,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         # run one "epoch"
         print('\n[train_model]: starting "epoch" %d (of %d)' % (e_idx, n_epochs))
         for jj in print_generator(range(n_mb_per_epoch)):
-            Xi, Yi = random_minibatch(X_train, Y_train, mb_size, sz, xform)
+            Xi, Yi = f_augment(X_train, Y_train, mb_size, sz)
             Yi = pixelwise_one_hot(Yi, n_classes)
             loss, acc = model.train_on_batch(Xi, Yi)
             score_all.append(loss)
