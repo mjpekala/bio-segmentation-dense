@@ -334,7 +334,7 @@ def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=50, out_dir='./Ex_Mono_La
 if __name__ == '__main__':
     K.set_image_dim_ordering('th')
     n_folds = 5
-    tile_size = (512,512)
+    tile_size = (512,256)
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Load and preprocess data
