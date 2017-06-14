@@ -182,6 +182,9 @@ def tian_shift_updown(X, Y, max_shift=50):
     [n,d,r,c] = X.shape
 
     delta = np.floor(np.random.rand() * max_shift).astype(np.int32)
+    if delta == 0:
+        return X, Y
+    
     fill = np.ones((n,d,delta,c), dtype=X.dtype)
     
     if np.random.rand() < .5:
@@ -191,6 +194,9 @@ def tian_shift_updown(X, Y, max_shift=50):
         X_out = np.concatenate((0*fill, X[:, :, :-delta, :]), axis=2)
         Y_out = np.concatenate((TIAN_FILL_VALUE_ABOVE*fill, Y[:, :, :-delta, :]), axis=2)
 
+    assert(np.all(X_out.shape == X.shape))
+    assert(np.all(Y_out.shape == Y.shape))
+    
     return X_out, Y_out
     
 
