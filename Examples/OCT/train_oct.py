@@ -34,6 +34,10 @@ import data_tools as dt
 
 
 
+TIAN_FILL_VALUE_ABOVE = 0
+TIAN_FILL_VALUE_BELOW = 5
+
+
 def tian_load_data(mat_file):
     """ Loads data set from [tia16]. """
     mf = loadmat(mat_file)
@@ -81,7 +85,7 @@ def tian_dense_labels(Y, n_rows):
     # make sure values are all integers
     Y = np.round(Y)
 
-    Y_dense = np.zeros((n_slices, n_rows, n_cols), dtype=np.int32)
+    Y_dense = TIAN_FILL_VALUE_ABOVE * np.ones((n_slices, n_rows, n_cols), dtype=np.int32)
 
     for s in range(n_slices):
         for col in range(n_cols):
@@ -98,7 +102,7 @@ def tian_dense_labels(Y, n_rows):
             Y_dense[s,region_6_11,col] = 4
 
             region_rest = np.arange(Y[s,7,col], n_rows).astype(np.int32)
-            Y_dense[s,region_rest,col] = 5
+            Y_dense[s,region_rest,col] = TIAN_FILL_VALUE_BELOW
 
     return Y_dense
 
@@ -164,6 +168,33 @@ def _crop_rows(X, crops):
     return np.concatenate(X_out, axis=0)
 
 
+
+def tian_shift_updown(X, Y, max_shift=50):
+    """ Synthetic data augmentation for Tian data set.
+
+    Randomly shifts the images/labels for a minibatch up or down.
+
+    Note: for Y, must fill top and bottom using different values/labels.
+
+    Note: Y is not yet onehot at this point.
+    """
+
+    [n,d,r,c] = X.shape
+
+    delta = np.floor(np.random.rand() * max_shift).astype(np.int32)
+    fill = np.ones((n,d,delta,c), dtype=X.dtype)
+    
+    if np.random.rand() < .5:
+        X_out = np.concatenate((X[:, :, delta:, :], 0*fill), axis=2)
+        Y_out = np.concatenate((Y[:, :, delta:, :], TIAN_FILL_VALUE_BELOW*fill), axis=2)
+    else:
+        X_out = np.concatenate((0*fill, X[:, :, :-delta, :]), axis=2)
+        Y_out = np.concatenate((TIAN_FILL_VALUE_ABOVE*fill, Y[:, :, :-delta, :]), axis=2)
+
+    return X_out, Y_out
+    
+
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # The following functions run various experiments
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -186,7 +217,7 @@ def ex_detect_then_segment(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_De
 
     # class labels for a "layer detection" problem
     Y_binary = np.copy(Y)
-    Y_binary[Y_binary > 0 and Y_binary < 5] = 1  # see tien_dense_labels()
+    Y_binary[Y_binary > TIAN_FILL_VALUE_ABOVE and Y_binary < TIAN_FILL_VALUE_BELOW] = 1
 
     
     for test_fold in range(n_folds):
@@ -298,7 +329,7 @@ def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex_Mono_L
         model = ct.create_unet((1, tile_size[0], tile_size[1]), n_classes, f_loss=loss)
         model.name = 'oct_seg_fold%d' % test_fold
 
-        f_augment = partial(dt.random_minibatch, p_fliplr=.5)
+        f_augment = partial(dt.random_minibatch, p_fliplr=.5, f_upstream=tian_shift_updown)
 
         tic = time.time()
         ct.train_model(X[train_slices,...], Y[train_slices,...],
@@ -355,7 +386,7 @@ if __name__ == '__main__':
     delta_row = tile_size[0] - X.shape[1]
     pad = np.ones((X.shape[0], delta_row, X.shape[2]), dtype=X.dtype)
     X = np.concatenate((X, 0*pad), axis=1)
-    Y = np.concatenate((Y, 5*pad), axis=1)
+    Y = np.concatenate((Y, TIAN_FILL_VALUE_BELOW*pad), axis=1)
 
     # add "channel" dimension and change to float32
     X = X[:, np.newaxis, :, :].astype(np.float32)
