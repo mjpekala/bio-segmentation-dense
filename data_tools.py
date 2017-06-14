@@ -100,7 +100,7 @@ def pixelwise_one_hot(Y, n_classes):
 
 
     
-def random_minibatch(X, Y, num_in_batch, sz, p_sym8=0.0, p_fliplr=0.0):
+def random_minibatch(X, Y, num_in_batch, sz, p_sym8=0.0, p_fliplr=0.0, f_upstream=None):
     """ Creates a single minibatch of training data by randomly sampling
     subsets of the training data (X, Y).
 
@@ -135,6 +135,9 @@ def random_minibatch(X, Y, num_in_batch, sz, p_sym8=0.0, p_fliplr=0.0):
         #
         # Synthetic data augmentation (optional)
         #
+        if f_upstream is not None:
+            Xi, Yi = f_upstream(Xi, Yi)
+            
         if p_sym8 > 0 and np.random.rand() < p_sym8:
             Xi, Yi = apply_symmetry([Xi, Yi])
 
