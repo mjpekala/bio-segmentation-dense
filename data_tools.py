@@ -100,7 +100,7 @@ def pixelwise_one_hot(Y, n_classes):
 
 
     
-def random_minibatch(X, Y, num_in_batch, sz, xform):
+def random_minibatch(X, Y, num_in_batch, sz, p_sym8=0.0, p_fliplr=0.0):
     """ Creates a single minibatch of training data by randomly sampling
     subsets of the training data (X, Y).
 
@@ -110,7 +110,8 @@ def random_minibatch(X, Y, num_in_batch, sz, xform):
 
     Parameters:    
        X := tensor with dimensions (#examples, #channels, rows, colums)
-       Y := tensor with dimensions (#examples, rows, columns)
+       Y := tensor with dimensions (#examples, 1, rows, columns)
+            ie.  *before* one-hot encoding
        num_in_batch := scalar; number of objects in the minibatch
        sz := tuple (n_rows, n_cols) indicating the chip size
        
@@ -124,17 +125,25 @@ def random_minibatch(X, Y, num_in_batch, sz, xform):
     for ii in range(num_in_batch):
         # grab a random slice
         ni = _my_randint(low=0, high=n-1)
-        Xi = X[ni,...];   Yi = Y[ni, ...]
+        Xi = X[ [ni,],...];   Yi = Y[ [ni], ...]
         
         # grab a random subset of the slice (of size sz);
         # i.e. a "tile"
         if sz[0] < r or sz[1] < c:
             Xi, Yi = random_crop([Xi, Yi], sz)
 
-        # warp/transform
-        if xform:
+        #
+        # Synthetic data augmentation (optional)
+        #
+        if p_sym8 > 0 and np.random.rand() < p_sym8:
             Xi, Yi = apply_symmetry([Xi, Yi])
-            #Xi,Yi = apply_warping(Xi, Yi)
+
+        if p_fliplr > 0 and np.random.rand() < p_fliplr:
+            Xi = Xi[:, :, :, ::-1]
+            Yi = Yi[:, :, :, ::-1]
+
+        if False:
+            Xi,Yi = apply_warping(Xi, Yi)
 
         X_mb[ii,...] = Xi
         Y_mb[ii,...] = Yi
