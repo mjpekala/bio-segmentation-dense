@@ -160,21 +160,40 @@ class TestStuff(unittest.TestCase):
         y_true = np.zeros((5, 1, 10, 10), dtype=np.float32)
         for ii in np.arange(y_true.shape[3]):
             y_true[:,:,:,ii] = np.arange(y_true.shape[2])
-            
+
         y_true_oh = pixelwise_one_hot(y_true, 10).astype(np.float32)
-        
+
         # Note: we assume theano backend here
         y = theano.tensor.tensor4('y_true')
         yh = theano.tensor.tensor4('y_hat')
 
         loss_mono_y_th = ct.monotonic_in_row_loss(y, yh)
-        
+
         out = loss_mono_y_th.eval({y : y_true_oh, yh : y_true_oh})
 
         self.assertTrue(out == 0)
 
-        # TODO: more tests here
+        # TODO: more tests here...
 
+
+    def test_tv_loss(self):
+        y_true = np.zeros((5, 1, 10, 10), dtype=np.float32)
+        y_true_oh = pixelwise_one_hot(y_true, 10).astype(np.float32)
+        
+        y = theano.tensor.tensor4('y_true')
+        yh = theano.tensor.tensor4('y_hat')
+        
+        tv_loss = ct.total_variation_loss(y, yh)
+        
+        out = tv_loss.eval({y : y_true_oh, yh : y_true_oh})
+        self.assertTrue(out == 0)
+
+        # add some variability
+        y_hat_oh = np.copy(y_true_oh)
+        y_hat_oh[0,:,0,0] = 1
+        out = tv_loss.eval({y : y_true_oh, yh : y_hat_oh})
+        self.assertTrue(out > 0)
+        
         
     def test_composite_loss(self):
         y_true_raw = np.random.randint(low=0, high=10, size=(100, 1, 32, 32))
