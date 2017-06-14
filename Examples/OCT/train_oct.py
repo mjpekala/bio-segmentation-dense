@@ -258,7 +258,7 @@ def ex_detect_then_segment(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_De
 
 
         
-def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_Mono_Labels'):
+def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=50, out_dir='./Ex_Mono_Labels'):
     """ Single classifier that penalizes out-of-order class labels along vertical dimension.
     """
 
