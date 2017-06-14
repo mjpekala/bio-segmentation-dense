@@ -345,9 +345,9 @@ def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex_Mono_L
         # Note: we evaluate the whole volume but evaluate performance only on the test subset.
         # Note: we evaluate the volume one slice at a time to avoid memory issues.
         #
+        #Y_hat = ct.deploy_model(X, model, two_pass=True)
         Y_hat = [ct.deploy_model(X[ [ii,],...], model, two_pass=True) for ii in range(X.shape[0])]
         Y_hat = np.concatenate(Y_hat, axis=0)
-        #Y_hat = ct.deploy_model(X, model, two_pass=True)
         Y_hat = np.argmax(Y_hat, axis=1)
         acc_test = 100. * np.sum(Y_hat[test_slices,...] == np.squeeze(Y[test_slices,...])) / Y_hat[test_slices,...].size
 
