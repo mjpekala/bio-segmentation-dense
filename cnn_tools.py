@@ -136,24 +136,27 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
 
 
 
-def total_variation_loss(x):
+def total_variation_loss(y_true, y_hat):
     """
     adapted from: keras/examples/neural_style_transfer.py
     """
-    raise RuntimeError('still under construction');
-    assert K.ndim(x) == 4
-    n_rows = x.shape[-2]
-    n_cols = x.shape[-1]
+    assert K.ndim(y_hat) == 4
+    n_rows = y_hat.shape[-2]
+    n_cols = y_hat.shape[-1]
+    
+    # differences along rows and columns
+    # note: I assume channels first.
+    #
+    # note: even though these encodings are one-hot, this calculation should
+    #       still be reasonable (perhaps up to a scaling factor)
+    a = K.square(y_hat[:, :, :(n_rows-1), :(n_cols-1)] - y_hat[:, :, 1:, :(n_cols-1)])
+    b = K.square(y_hat[:, :, :(n_rows-1), :(n_cols-1)] - y_hat[:, :, :(n_rows-1), 1:])
+    
+    # a no-op involving y_true so that Theano doesn't complain about
+    # unused nodes in the computational graph.
+    zero = K.sum(0 * y_true.flatten())
 
-    a = K.square(x[:, :, :(n_rows-1), :(n_cols-1)] - x[:, :, 1:, :(n_cols-1)])
-    b = K.square(x[:, :, :(n_rows-1), :(n_cols-1)] - x[:, :, :(n_rows-1), 1:])
-
-    #if K.image_data_format() == 'channels_first':
-    #else:
-    #    a = K.square(x[:, :img_nrows - 1, :img_ncols - 1, :] - x[:, 1:, :img_ncols - 1, :])
-    #    b = K.square(x[:, :img_nrows - 1, :img_ncols - 1, :] - x[:, :img_nrows - 1, 1:, :])
-        
-    return K.sum(K.pow(a + b, 1.25))
+    return K.sum(K.pow(a + b, 1.25)) + zero
 
 
 
@@ -175,8 +178,8 @@ def monotonic_in_row_loss(y_true, y_hat):
     diff = K.clip(diff, -np.Inf, 0)
     # diff = K.clip(dff, -1, 0)
 
-    # here we do something meaningless to y_true so that Theano
-    # doesn't complain about unused nodes in the computational graph.
+    # a no-op involving y_true so that Theano doesn't complain about
+    # unused nodes in the computational graph.
     zero = K.sum(0 * y_true.flatten())
 
     return K.sum(K.square(diff)) + zero
