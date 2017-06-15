@@ -104,6 +104,8 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
                      (#_examples, #_classes, #_rows, #_cols)
 
         y_hat  :  Estimated class labels; same shape as y_true
+
+        w      :  Either None, or a vector with dimension #_classes
     """
 
     # In some cases, there may be no label associated with a pixel.
@@ -111,12 +113,6 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     #
     is_pixel_labeled = K.sum(y_true, axis=1)               # for one-hot or zero-hot, this should be 0 or 1
     is_pixel_labeled = is_pixel_labeled.clip(0,1)          # for multi-label case
-
-    # we could zero out estimates associated with unlabeled pixels, but this is
-    # not necessary (multiplying by y_true effectively does this)
-    #
-    #is_pixel_labeled = is_pixel_labeled[:,np.newaxis,:,:]  # enable broadcast
-    #y_hat = y_hat * is_pixel_labeled
 
     # Normally y_hat is coming from a sigmoid (or other "squashing")
     # and therefore never reaches exactly 0 or 1 (so the call to log
@@ -128,8 +124,11 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     loss = K.sum(y_true * K.log(y_hat), axis=1)
 
     if w is not None:
-        raise NotImplementedError('asymmetric weighting is a to-be-implemented feature')
-        #ce *= w
+        w = w.flatten()
+        w_map = w[np.newaxis, :, np.newaxis, np.newaxis]  # enables broadcast in next step
+        per_pixel_cost = K.sum(y_true * w_map, axis=1)
+        loss = loss * per_pixel_cost
+        
 
     #return K.mean(-loss)
     return K.sum(-loss) / K.sum(is_pixel_labeled)
@@ -168,6 +167,7 @@ def monotonic_in_row_loss(y_true, y_hat):
     n_cols = y_hat.shape[-1]
 
     # convert one-hot into class estimates.
+    # XXX: argmax() may not be terribly convenient to push a gradient through...
     y_hat_flat = y_hat.argmax(axis=1, keepdims=False)
 
     # if class labels are increasing down the row dimension, then we
@@ -324,7 +324,8 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         acc = 100. * np.sum(Yi_hat == Y_valid) / Y_valid.size
         net_prob = np.sum(Yi_hat_oh, axis=1)  # This should be very close to 1 everywhere
 
-        print('[train_model]: recent train loss: %0.3f' % np.mean(score_all[-20:]))
+        if len(score_all) > 100:
+            print('[train_model]: recent train loss: %0.3f' % np.mean(score_all[-80:]))
         print('[train_model]: acc on validation data:   %0.3f' % acc)
         
         if n_classes == 2 and np.any(Yi_hat > 0):
