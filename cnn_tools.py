@@ -303,7 +303,8 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     print('[train_model]: Y_train is ', Y_train.shape, Y_train.dtype, np.min(Y_train), np.max(Y_train))
     print('[train_model]: X_valid is ', X_valid.shape, X_valid.dtype, np.min(X_valid), np.max(X_valid))
     print('[train_model]: Y_valid is ', Y_valid.shape, Y_valid.dtype, np.min(Y_valid), np.max(Y_valid))
-    print('[train_model]: model input shape: ', model.input_shape)
+    print('[train_model]: model input shape:  ', model.input_shape)
+    print('[train_model]: model output shape: ', model.output_shape)
 
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
@@ -336,7 +337,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         for ii in range(n_classes):
             frac_ii_yhat = 1. * np.sum(Yi_hat_oh[:,ii,...]) / Y_valid.size # "prob mass" in class ii
             frac_ii_y = 1. * np.sum(Y_valid == ii) / Y_valid.size
-            print('[train_model]:    frac y=%d:  %0.3f (%0.3f)' % (ii, frac_ii_yhat, frac_ii_y))
+            print('[train_model]:    true frac y=%d:  %0.3f (est. %0.3f)' % (ii, frac_ii_yhat, frac_ii_y))
 
         # save state when appropriate
         if (acc > acc_best) or (e_idx == n_epochs-1):
