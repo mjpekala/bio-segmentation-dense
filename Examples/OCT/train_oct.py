@@ -341,13 +341,19 @@ def ex_detect_then_segment(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_De
 
 
         
-def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex_ACE_and_TV'):
+def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=100,
+                                 layer_weights = [1, 10, 10, 10, 10, 1],
+                                 ace_tv_weights = [20, .01],
+                                 out_dir='./Ex_ACE_and_TV'):
     """ Single classifier that encourages smooth estimates.
     """
 
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
+    print('layer weights:    %s' % str(layer_weights))
+    print('ACE / TV weights: %s' % str(ace_tv_weights))
+    
     n_classes = len(np.unique(Y[Y>=0].flatten()))
     sys.stdout = Tee(os.path.join(out_dir, 'logfile.txt'))
     
@@ -369,11 +375,11 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex
         # 
         # custom loss function
         #
-        ace_w = partial(ct.pixelwise_ace_loss, w=np.array([1, 10, 10, 10, 10, 1]))
+        ace_w = partial(ct.pixelwise_ace_loss, w=np.array(layer_weights))
         loss = partial(ct.make_composite_loss,
-                           loss_a=ct.pixelwise_ace_loss, w_a=20,
+                           loss_a=ct.pixelwise_ace_loss, w_a=ace_tv_weights[0],
+                           loss_b=ct.total_variation_loss, w_b=ace_tv_weights[1])
                            #loss_b=ct.monotonic_in_row_loss, w_b=0.9)
-                           loss_b=ct.total_variation_loss, w_b=0.01)
         loss.__name__ = 'custom loss function'  # Keras checks this for something
 
         #
