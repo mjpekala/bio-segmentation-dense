@@ -154,6 +154,29 @@ class TestStuff(unittest.TestCase):
         loss1 = f_theano.eval({a : y_true, b : y_hat})
         loss2 = f_theano.eval({a : y_true_u, b : y_hat})
         self.assertTrue(loss2 < loss1)
+        
+        #--------------------------------------------------
+        # test weighted losses
+        #--------------------------------------------------
+        y_binary = np.ones((1,1,32,32))
+        y_binary_oh = pixelwise_one_hot(y_binary, 2).astype(np.float32)
+        y_allwrong_oh = pixelwise_one_hot(0*y_binary, 2).astype(np.float32)
+        
+        f_theano = pixelwise_ace_loss(a,b,w=np.array([1,1]))
+        loss0 = f_theano.eval({a : y_binary_oh, b : y_binary_oh})
+        self.assertTrue(loss0 == 0)
+        
+        lossAllWrong = f_theano.eval({a : y_binary_oh, b : y_allwrong_oh})
+        self.assertTrue(lossAllWrong > 0)
+        
+        f_theano = pixelwise_ace_loss(a,b,w=np.array([1,0]))
+        lossAllWrong_0 = f_theano.eval({a : y_binary_oh, b : y_allwrong_oh})
+        self.assertTrue(lossAllWrong_0 == 0)
+        
+        f_theano = pixelwise_ace_loss(a,b,w=np.array([1,2]))
+        lossAllWrong_2 = f_theano.eval({a : y_binary_oh, b : y_allwrong_oh})
+        self.assertTrue(lossAllWrong_2 > lossAllWrong)
+        
 
 
     def test_monotonic_losses(self):
