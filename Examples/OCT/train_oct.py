@@ -34,7 +34,8 @@ import data_tools as dt
 
 
 TIAN_FILL_VALUE_ABOVE = 0
-TIAN_FILL_VALUE_BELOW = 5
+#TIAN_FILL_VALUE_BELOW = 5
+TIAN_FILL_VALUE_BELOW = 0  # if we don't care about monotonicity
 
 
 def tian_load_data(mat_file):
