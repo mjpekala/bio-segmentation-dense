@@ -458,4 +458,8 @@ if __name__ == '__main__':
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run some experiment
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size)
+    layer_weights = [1, 15, 15, 15, 15, 1]
+    ace_tv_weights = [20, .01]
+    ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size,
+                                 layer_weights=[1, 15, 15, 15, 15, 1],
+                                 ace_tv_weights=ace_tv_weights)
