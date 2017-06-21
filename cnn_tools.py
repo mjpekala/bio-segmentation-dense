@@ -337,7 +337,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         for ii in range(n_classes):
             frac_ii_yhat = 1. * np.sum(Yi_hat_oh[:,ii,...]) / Y_valid.size # "prob mass" in class ii
             frac_ii_y = 1. * np.sum(Y_valid == ii) / Y_valid.size
-            print('[train_model]:    true frac y=%d:  %0.3f (est. %0.3f)' % (ii, frac_ii_yhat, frac_ii_y))
+            print('[train_model]:    [y=%d]  est: %0.3f,  true: %0.3f' % (ii, frac_ii_yhat, frac_ii_y))
 
         # save state when appropriate
         if (acc > acc_best) or (e_idx == n_epochs-1):
