@@ -34,8 +34,7 @@ import data_tools as dt
 
 
 TIAN_FILL_VALUE_ABOVE = 0
-#TIAN_FILL_VALUE_BELOW = 5
-TIAN_FILL_VALUE_BELOW = 0  # if we don't care about monotonicity
+TIAN_FILL_VALUE_BELOW = 5
 
 
 def tian_load_data(mat_file):
@@ -458,8 +457,8 @@ if __name__ == '__main__':
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run some experiment
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    layer_weights = [1, 15, 15, 15, 15, 1]
+    layer_weights = [1, 10, 10, 10, 10, 1]
     ace_tv_weights = [20, .01]
     ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size,
-                                 layer_weights=[1, 15, 15, 15, 15, 1],
+                                 layer_weights=layer_weights,
                                  ace_tv_weights=ace_tv_weights)
