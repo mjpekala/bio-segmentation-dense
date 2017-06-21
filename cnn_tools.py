@@ -294,8 +294,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     assert(X_train.dtype == np.float32)
     
     sz = model.input_shape[-2:]
-    score_all = []
     n_classes = model.output_shape[1]
+    n_missing_valid = np.sum(np.all(Y_valid == 0, axis=1))
+    score_all = []
     acc_best = -1
 
     # show some info about the training data
@@ -338,6 +339,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
             frac_ii_yhat = 1. * np.sum(Yi_hat_oh[:,ii,...]) / Y_valid.size # "prob mass" in class ii
             frac_ii_y = 1. * np.sum(Y_valid == ii) / Y_valid.size
             print('[train_model]:    [y=%d]  est: %0.3f,  true: %0.3f' % (ii, frac_ii_yhat, frac_ii_y))
+
+        print('[train_model]:    [y=missing]    true: %0.3f' % (n_missing_valid / Y_valid.size))
+
 
         # save state when appropriate
         if (acc > acc_best) or (e_idx == n_epochs-1):
