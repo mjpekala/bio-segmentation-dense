@@ -347,7 +347,7 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
-    n_classes = len(np.unique(Y.flatten()))
+    n_classes = len(np.unique(Y[Y>=0].flatten()))
     sys.stdout = Tee(os.path.join(out_dir, 'logfile.txt'))
     
     for test_fold in range(n_folds):
@@ -435,17 +435,18 @@ if __name__ == '__main__':
     # for now, we just use one set of annotations 
     Y = Y1
     Y = tian_dense_labels(Y, X.shape[1])
-
     X,Y = tian_preprocessing(X, Y, tile_size)
 
     n_classes = np.sum(np.unique(Y) >= 0)
-    
+
+    print('')
     print('Y native shape:   ', Y.shape)
     print('class labels:     ', str(np.unique(Y)))
     for yi in np.unique(Y):
         print(' class %d fraction: %0.3f' % (yi, 1.*np.sum(Y==yi)/Y.size))
     print('pct missing:       %0.2f' % (100. * np.sum(Y < 0) / Y.size))
     print('X :', X.shape, np.min(X), np.max(X), X.dtype)
+    print('')
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run some experiment
