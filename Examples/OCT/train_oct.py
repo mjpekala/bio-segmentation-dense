@@ -340,7 +340,7 @@ def ex_detect_then_segment(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_De
 
 
         
-def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex_Mono_Labels'):
+def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex_ACE_and_TV'):
     """ Single classifier that encourages smooth estimates.
     """
 
