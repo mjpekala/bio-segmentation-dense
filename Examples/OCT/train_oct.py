@@ -295,8 +295,8 @@ def ex_detect_then_segment(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_De
 
 
         
-def ex_monotonic_loss(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex_Mono_Labels'):
-    """ Single classifier that penalizes out-of-order class labels along vertical dimension.
+def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=100, out_dir='./Ex_Mono_Labels'):
+    """ Single classifier that encourages smooth estimates.
     """
 
     if not os.path.exists(out_dir):
@@ -425,4 +425,4 @@ if __name__ == '__main__':
     if False:
         ex_detect_then_segment(X, Y, fold_id)
     else:
-        ex_monotonic_loss(X, Y, fold_id, tile_size=tile_size)
+        ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size)
