@@ -8,7 +8,6 @@
 """
 
 # TODO: mirror edges and more disciplined sampling of space during training!
-# TODO: TV mod p penalizer??
 
 
 from __future__ import print_function
@@ -105,6 +104,52 @@ def tian_dense_labels(Y, n_rows):
             Y_dense[s,region_rest,col] = TIAN_FILL_VALUE_BELOW
 
     return Y_dense
+
+
+
+def tian_preprocessing(X, Y, tile_size):
+    """ Preprocessing to prepare Tian data for CNN.
+
+      Y should be a set of dense class labels; see tian_dense_labels()
+    """
+
+    # Pad vertical extent to a power of 2.
+    # This is because we want each "tile" to cover the full vertical extent of the image.
+    delta_row = tile_size[0] - X.shape[1]
+    pad = np.ones((X.shape[0], delta_row, X.shape[2]), dtype=X.dtype)
+    X = np.concatenate((X, 0*pad), axis=1)
+    Y = np.concatenate((Y, TIAN_FILL_VALUE_BELOW*pad), axis=1)
+
+    # add "channel" dimension and change to float32
+    X = X[:, np.newaxis, :, :].astype(np.float32)
+    Y = Y[:, np.newaxis, :, :].astype(np.float32)
+
+    # some of the borders look bad (missing data but extrapolated labels, etc.).
+    # mitigate that here
+    if False:
+        # to compensate somewhat, we'll crop away some columns
+        # This isn't ideal because:
+        #   (a) it also discards legitimate data,
+        #   (b) it is not precise, and
+        #   (c) it does not address "all zero" rows
+        #
+        snip_lr = 10
+        print('snipping %d columns from both edges!!' % snip_lr)
+        X = X[...,snip_lr:-snip_lr]
+        Y = Y[...,snip_lr:-snip_lr]
+    else:
+        # Suppress class labels from "all zero" rows and columns.
+        # This way, they do not influence the loss function.
+        for slice in range(X.shape[0]):
+            max_pixel_in_col = np.max(X[slice,0,:,:], axis=0)
+            if np.any(max_pixel_in_col==0):
+                Y[slice,0,:,max_pixel_in_col==0] = -1
+                
+            max_pixel_in_row = np.max(X[slice,0,:,:], axis=1)
+            if np.any(max_pixel_in_row==0):
+                Y[slice,0,max_pixel_in_row==0,:] = -1
+
+    return X, Y
 
 
 
@@ -391,23 +436,7 @@ if __name__ == '__main__':
     Y = Y1
     Y = tian_dense_labels(Y, X.shape[1])
 
-    # pad vertical extent to a power of 2
-    delta_row = tile_size[0] - X.shape[1]
-    pad = np.ones((X.shape[0], delta_row, X.shape[2]), dtype=X.dtype)
-    X = np.concatenate((X, 0*pad), axis=1)
-    Y = np.concatenate((Y, TIAN_FILL_VALUE_BELOW*pad), axis=1)
-
-    # add "channel" dimension and change to float32
-    X = X[:, np.newaxis, :, :].astype(np.float32)
-    Y = Y[:, np.newaxis, :, :].astype(np.float32)
-
-    # some of the borders look bad (missing data but extrapolated labels, etc.).
-    # to compensate somewhat, we'll crop away some columns
-    if True:
-        snip_lr = 10
-        print('snipping %d columns from both edges!!' % snip_lr)
-        X = X[...,snip_lr:-snip_lr]
-        Y = Y[...,snip_lr:-snip_lr]
+    X,Y = tian_preprocessing(X, Y, tile_size)
 
     n_classes = np.sum(np.unique(Y) >= 0)
     
@@ -418,11 +447,7 @@ if __name__ == '__main__':
     print('pct missing:       %0.2f' % (100. * np.sum(Y < 0) / Y.size))
     print('X :', X.shape, np.min(X), np.max(X), X.dtype)
 
-    
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run some experiment
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    if False:
-        ex_detect_then_segment(X, Y, fold_id)
-    else:
-        ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size)
+    ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size)
