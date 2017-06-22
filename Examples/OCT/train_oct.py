@@ -124,9 +124,11 @@ def tian_preprocessing(X, Y, tile_size):
     X = X[:, np.newaxis, :, :].astype(np.float32)
     Y = Y[:, np.newaxis, :, :].astype(np.float32)
 
+    # XXX: as of 6/22, it is better to snip borders and not add -1 labels
+    
     # some of the borders look bad (missing data but extrapolated labels, etc.).
     # mitigate that here
-    if True:
+    if False:
         # to compensate somewhat, we'll crop away some columns
         # This isn't ideal because:
         #   (a) it also discards legitimate data,
@@ -137,17 +139,19 @@ def tian_preprocessing(X, Y, tile_size):
         print('snipping %d columns from both edges!!' % snip_lr)
         X = X[...,snip_lr:-snip_lr]
         Y = Y[...,snip_lr:-snip_lr]
-    else:
-        # Suppress class labels from "all zero" rows and columns.
+
+    if True:
+        # Suppress class labels from "all zero" columns
         # This way, they do not influence the loss function.
         for slice in range(X.shape[0]):
             max_pixel_in_col = np.max(X[slice,0,:,:], axis=0)
             if np.any(max_pixel_in_col==0):
                 Y[slice,0,:,max_pixel_in_col==0] = -1
-                
-            max_pixel_in_row = np.max(X[slice,0,:,:], axis=1)
-            if np.any(max_pixel_in_row==0):
-                Y[slice,0,max_pixel_in_row==0,:] = -1
+
+            # same thing, but for rows
+            #max_pixel_in_row = np.max(X[slice,0,:,:], axis=1)
+            #if np.any(max_pixel_in_row==0):
+            #    Y[slice,0,max_pixel_in_row==0,:] = -1
 
     return X, Y
 
