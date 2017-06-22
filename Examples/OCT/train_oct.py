@@ -33,8 +33,9 @@ import data_tools as dt
 
 
 
-TIAN_FILL_VALUE_ABOVE = 0
-TIAN_FILL_VALUE_BELOW = 5
+TIAN_FILL_ABOVE_CLASS = 0
+TIAN_FILL_BELOW_CLASS = 5
+TIAN_DONTCARE_CLASS = 6
 
 
 def tian_load_data(mat_file):
@@ -84,7 +85,7 @@ def tian_dense_labels(Y, n_rows):
     # make sure values are all integers
     Y = np.round(Y)
 
-    Y_dense = TIAN_FILL_VALUE_ABOVE * np.ones((n_slices, n_rows, n_cols), dtype=np.int32)
+    Y_dense = TIAN_FILL_ABOVE_CLASS * np.ones((n_slices, n_rows, n_cols), dtype=np.int32)
 
     for s in range(n_slices):
         for col in range(n_cols):
@@ -101,7 +102,7 @@ def tian_dense_labels(Y, n_rows):
             Y_dense[s,region_6_11,col] = 4
 
             region_rest = np.arange(Y[s,7,col], n_rows).astype(np.int32)
-            Y_dense[s,region_rest,col] = TIAN_FILL_VALUE_BELOW
+            Y_dense[s,region_rest,col] = TIAN_FILL_BELOW_CLASS
 
     return Y_dense
 
@@ -118,7 +119,7 @@ def tian_preprocessing(X, Y, tile_size):
     delta_row = tile_size[0] - X.shape[1]
     pad = np.ones((X.shape[0], delta_row, X.shape[2]), dtype=X.dtype)
     X = np.concatenate((X, 0*pad), axis=1)
-    Y = np.concatenate((Y, TIAN_FILL_VALUE_BELOW*pad), axis=1)
+    Y = np.concatenate((Y, TIAN_FILL_BELOW_CLASS*pad), axis=1)
 
     # add "channel" dimension and change to float32
     X = X[:, np.newaxis, :, :].astype(np.float32)
@@ -141,14 +142,16 @@ def tian_preprocessing(X, Y, tile_size):
         Y = Y[...,snip_lr:-snip_lr]
 
     if True:
-        # Suppress class labels from "all zero" columns
+        # Suppress class labels from "all zero" columns and/or rows
         # This way, they do not influence the loss function.
         for slice in range(X.shape[0]):
             max_pixel_in_col = np.max(X[slice,0,:,:], axis=0)
             if np.any(max_pixel_in_col==0):
-                Y[slice,0,:,max_pixel_in_col==0] = -1
+                Y[slice,0,:,max_pixel_in_col==0] = TIAN_DONTCARE_CLASS  
 
-            # same thing, but for rows
+            # rows are a bit tricker, since this interacts with our synthetic
+            # data augmentation.
+            #
             #max_pixel_in_row = np.max(X[slice,0,:,:], axis=1)
             #if np.any(max_pixel_in_row==0):
             #    Y[slice,0,max_pixel_in_row==0,:] = -1
@@ -238,10 +241,10 @@ def tian_shift_updown(X, Y, max_shift=50):
     
     if np.random.rand() < .5:
         X_out = np.concatenate((X[:, :, delta:, :], 0*fill), axis=2)
-        Y_out = np.concatenate((Y[:, :, delta:, :], TIAN_FILL_VALUE_BELOW*fill), axis=2)
+        Y_out = np.concatenate((Y[:, :, delta:, :], TIAN_FILL_BELOW_CLASS*fill), axis=2)
     else:
         X_out = np.concatenate((0*fill, X[:, :, :-delta, :]), axis=2)
-        Y_out = np.concatenate((TIAN_FILL_VALUE_ABOVE*fill, Y[:, :, :-delta, :]), axis=2)
+        Y_out = np.concatenate((TIAN_FILL_ABOVE_CLASS*fill, Y[:, :, :-delta, :]), axis=2)
 
     assert(np.all(X_out.shape == X.shape))
     assert(np.all(Y_out.shape == Y.shape))
@@ -272,7 +275,7 @@ def ex_detect_then_segment(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_De
 
     # class labels for a "layer detection" problem
     Y_binary = np.copy(Y)
-    Y_binary[Y_binary > TIAN_FILL_VALUE_ABOVE and Y_binary < TIAN_FILL_VALUE_BELOW] = 1
+    Y_binary[Y_binary > TIAN_FILL_ABOVE_CLASS and Y_binary < TIAN_FILL_BELOW_CLASS] = 1
 
     
     for test_fold in range(n_folds):
@@ -461,7 +464,7 @@ if __name__ == '__main__':
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run some experiment
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    layer_weights = [1, 10, 10, 10, 10, 1]
+    layer_weights = [1, 10, 10, 10, 10, 1, 0]
     ace_tv_weights = [20, .01]
     ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size,
                                  layer_weights=layer_weights,
