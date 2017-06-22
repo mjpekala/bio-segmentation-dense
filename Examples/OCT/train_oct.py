@@ -126,7 +126,7 @@ def tian_preprocessing(X, Y, tile_size):
 
     # some of the borders look bad (missing data but extrapolated labels, etc.).
     # mitigate that here
-    if False:
+    if True:
         # to compensate somewhat, we'll crop away some columns
         # This isn't ideal because:
         #   (a) it also discards legitimate data,
