@@ -126,13 +126,11 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     #  There is no loss associated with places where y_true is 0, so y_hat could be
     #  all 1s and incurr no loss.
     #
-    loss = K.sum(y_true * K.log(y_hat), axis=1)
-
     if w is not None:
-        w = w.flatten()
-        w_map = w[np.newaxis, :, np.newaxis, np.newaxis]  # enables broadcast in next step
-        per_pixel_cost = K.sum(y_true * w_map, axis=1)
-        loss = loss * per_pixel_cost
+        w_onehot = w[np.newaxis, :, np.newaxis, np.newaxis] # enable broadcast
+        loss = K.sum(y_true * w_onehot * K.log(y_hat), axis=1)
+    else:
+        loss = K.sum(y_true * K.log(y_hat), axis=1)
         
     #return K.mean(-loss)
     return K.sum(-loss) / K.sum(is_pixel_labeled)
