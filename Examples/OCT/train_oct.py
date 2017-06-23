@@ -273,6 +273,8 @@ class Tee(object):
         
 def ex_detect_then_segment(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_Detect_and_Segment'):
 
+    raise RuntimeError('this was an old approach.  I do not recommend using it')
+
     # class labels for a "layer detection" problem
     Y_binary = np.copy(Y)
     Y_binary[Y_binary > TIAN_FILL_ABOVE_CLASS and Y_binary < TIAN_FILL_BELOW_CLASS] = 1
@@ -437,6 +439,18 @@ if __name__ == '__main__':
     n_folds = 5
     tile_size = (512,256)
 
+    if len(sys.argv) > 1:
+        out_dir = 'Ex_' + sys.argv[1]
+        w1 = float(sys.argv[2])
+        w2 = float(sys.argv[3])
+        
+        layer_weights = [1, w1, w1, w1, w1, 1, 0]
+        ace_tv_weights = [w2, 1]
+    else:
+        out_dir = 'Ex_Default'
+        layer_weights = [1, 10, 10, 10, 10, 1, 0]
+        ace_tv_weights = [20, .01]
+
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Load and preprocess data
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -462,10 +476,9 @@ if __name__ == '__main__':
     print('')
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Run some experiment
+    # Run experiment
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    layer_weights = [1, 10, 10, 10, 10, 1, 0]
-    ace_tv_weights = [20, .01]
     ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size,
                                  layer_weights=layer_weights,
-                                 ace_tv_weights=ace_tv_weights)
+                                 ace_tv_weights=ace_tv_weights,
+                                 out_dir=out_dir)
