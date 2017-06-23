@@ -324,28 +324,32 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
             score_all.append(loss)
 
         # evaluate performance on validation data
-        Yi_hat_oh = deploy_model(X_valid, model)  # oh = one-hot
+        Y_valid_hat_oh = deploy_model(X_valid, model)  # oh = one-hot
 
-        Yi_hat = np.argmax(Yi_hat_oh, axis=1);  Yi_hat = Yi_hat[:,np.newaxis,...]
-        acc = 100. * np.sum(Yi_hat == Y_valid) / Y_valid.size
-        net_prob = np.sum(Yi_hat_oh, axis=1)  # This should be very close to 1 everywhere
+        Y_valid_hat = np.argmax(Y_valid_hat_oh, axis=1);
+        Y_valid_hat = Y_valid_hat[:,np.newaxis,...]
+        acc = 100. * np.sum(Y_valid_hat == Y_valid) / Y_valid.size
+        net_prob = np.sum(Y_valid_hat_oh, axis=1)  # This should be very close to 1 everywhere
 
         if len(score_all) > 100:
             print('[train_model]: recent train loss: %0.3f' % np.mean(score_all[-80:]))
+            
         print('[train_model]: acc on validation data:   %0.3f' % acc)
         
-        if n_classes == 2 and np.any(Yi_hat > 0):
+        if n_classes == 2 and np.any(Y_valid_hat > 0):
             # easy to do an f1 score in binary case
             print('[train_model]: f1 on validation data:    %0.3f' % skm.f1_score(Y_valid.flatten(), Yi_hat.flatten()))
 
         # look at the distribution of class labels
-        for ii in range(n_classes):
-            frac_ii_yhat = 1. * np.sum(Yi_hat_oh[:,ii,...]) / Y_valid.size # "prob mass" in class ii
-            frac_ii_y = 1. * np.sum(Y_valid == ii) / Y_valid.size
-            print('[train_model]:    [y=%d]  est: %0.3f,  true: %0.3f' % (ii, frac_ii_yhat, frac_ii_y))
-
-        print('[train_model]:    [y=missing]         true: %0.3f' % (n_missing_valid / Y_valid.size))
-
+        #for ii in range(n_classes):
+        #    frac_ii_yhat = 1. * np.sum(Yi_hat_oh[:,ii,...]) / Y_valid.size # "prob mass" in class ii
+        #    frac_ii_y = 1. * np.sum(Y_valid == ii) / Y_valid.size
+        #    print('[train_model]:    [y=%d]  est: %0.3f,  true: %0.3f' % (ii, frac_ii_yhat, frac_ii_y))
+        #
+        #print('[train_model]:    [y=missing]         true: %0.3f' % (n_missing_valid / Y_valid.size))
+        print(skm.classification_report(Y_valid.flatten(), Y_valid_hat.flatten()))
+        C = skm.confusion_matrix(Y_valid.flatten(), Y_valid_hat.flatten())
+        
 
         # save state when appropriate
         if (acc > acc_best) or (e_idx == n_epochs-1):
@@ -354,7 +358,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
 
             fn = '%s_valid_epoch%04d' % (model.name, e_idx)
             fn = os.path.join(out_dir, fn)
-            np.savez(fn, X=X_valid, Y=Y_valid, Y_hat=Yi_hat_oh, s=score_all)
+            np.savez(fn, X=X_valid, Y=Y_valid, Y_hat=Y_valid_hat_oh, s=score_all)
             acc_best = acc
 
     return score_all
