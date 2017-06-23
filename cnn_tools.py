@@ -330,7 +330,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         net_prob = np.sum(Y_valid_hat_oh, axis=1)  # This should be very close to 1 everywhere
 
         if len(score_all) > 100:
-            print('[train_model]: recent train loss: %0.3f' % np.mean(score_all[-80:]))
+            print('[train_model]: recent train loss: %0.3f' % np.mean(score_all[-90:]))
+        else:
+            print('[train_model]: recent train loss: %0.3f' % np.mean(score_all))
             
         print('[train_model]: acc on validation data:   %0.3f' % acc)
         
