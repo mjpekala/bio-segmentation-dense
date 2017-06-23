@@ -383,7 +383,7 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=100,
         #
         ace_w = partial(ct.pixelwise_ace_loss, w=np.array(layer_weights))
         loss = partial(ct.make_composite_loss,
-                           loss_a=ct.pixelwise_ace_loss, w_a=ace_tv_weights[0],
+                           loss_a=ace_w, w_a=ace_tv_weights[0],
                            loss_b=ct.total_variation_loss, w_b=ace_tv_weights[1])
                            #loss_b=ct.monotonic_in_row_loss, w_b=0.9)
         loss.__name__ = 'custom loss function'  # Keras checks this for something
