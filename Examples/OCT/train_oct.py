@@ -349,7 +349,7 @@ def ex_detect_then_segment(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_De
 
 
         
-def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=100,
+def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
                                  layer_weights = [1, 10, 10, 10, 10, 1],
                                  ace_tv_weights = [20, .01],
                                  out_dir='./Ex_ACE_and_TV'):
