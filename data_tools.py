@@ -183,10 +183,8 @@ def apply_2d_operator(X, op):
 def mirror_edges_lr(X, n):
     """ Returns a new tensor where the left and right edges have been mirrored by n pixels.
     """
-    left = X[..., 0:n];         left = np.flip(left, axis=X.ndim-1)
-    right = X[..., -(n+1):-1];  right = np.flip(right, axis=X.ndim-1)
-    print(left.shape) # TEMP
-    print(right.shape) # TEMP
+    left = X[..., 0:n];         left = left[..., ::-1]
+    right = X[..., -(n+1):-1];  right = right[..., ::-1]
     return np.concatenate((left, X, right), axis=X.ndim-1)
 
 
