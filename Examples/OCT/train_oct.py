@@ -114,21 +114,27 @@ def tian_preprocessing(X, Y, tile_size):
       Y should be a set of dense class labels; see tian_dense_labels()
     """
 
+    #----------------------------------------
     # Pad vertical extent to a power of 2.
     # This is because we want each "tile" to cover the full vertical extent of the image.
+    #----------------------------------------
     delta_row = tile_size[0] - X.shape[1]
     pad = np.ones((X.shape[0], delta_row, X.shape[2]), dtype=X.dtype)
     X = np.concatenate((X, 0*pad), axis=1)
     Y = np.concatenate((Y, TIAN_FILL_BELOW_CLASS*pad), axis=1)
 
+    #----------------------------------------
     # add "channel" dimension and change to float32
+    #----------------------------------------
     X = X[:, np.newaxis, :, :].astype(np.float32)
     Y = Y[:, np.newaxis, :, :].astype(np.float32)
 
     # XXX: as of 6/22, it is better to snip borders and not add -1 labels
     
+    #----------------------------------------
     # some of the borders look bad (missing data but extrapolated labels, etc.).
     # mitigate that here
+    #----------------------------------------
     if False:
         # to compensate somewhat, we'll crop away some columns
         # This isn't ideal because:
@@ -156,6 +162,13 @@ def tian_preprocessing(X, Y, tile_size):
             #if np.any(max_pixel_in_row==0):
             #    Y[slice,0,max_pixel_in_row==0,:] = -1
 
+    #----------------------------------------
+    # edge mirroring
+    #----------------------------------------
+    if True:
+        X = dt.mirror_edges_lr(X, 100)
+        Y = dt.mirror_edges_lr(Y, 100)
+        
     return X, Y
 
 
