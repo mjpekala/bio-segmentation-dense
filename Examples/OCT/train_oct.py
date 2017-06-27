@@ -412,7 +412,7 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
         # create & train model
         # Note: I reduced the mini-batch size since the tiles are larger now.
         #
-        model = ct.create_unet((1, tile_size[0], tile_size[1]), n_classes, f_loss=loss)
+        model = ct.create_unet((X.shape[1], tile_size[0], tile_size[1]), n_classes, f_loss=loss)
         model.name = 'oct_seg_fold%d' % test_fold
 
         # TODO: add some kind of intensity augmentation?  we seem to suffer in the darker regions...
