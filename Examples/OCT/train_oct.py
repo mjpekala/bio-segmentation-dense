@@ -119,18 +119,23 @@ def tian_preprocessing(X, Y, tile_size):
     # This is because we want each "tile" to cover the full vertical extent of the image.
     #----------------------------------------
     delta_row = tile_size[0] - X.shape[1]
-    pad = np.ones((X.shape[0], delta_row, X.shape[2]), dtype=X.dtype)
+
+    pad_shape = list(X.shape);  pad_shape[-2] = delta_row;
+    pad = np.ones(pad_shape, dtype=X.dtype)
+    #pad = np.ones((X.shape[0], delta_row, X.shape[2]), dtype=X.dtype)
     X = np.concatenate((X, 0*pad), axis=1)
     Y = np.concatenate((Y, TIAN_FILL_BELOW_CLASS*pad), axis=1)
 
     #----------------------------------------
-    # add "channel" dimension and change to float32
+    # add "channel" dimension (if needed) and change to float32
     #----------------------------------------
-    X = X[:, np.newaxis, :, :].astype(np.float32)
-    Y = Y[:, np.newaxis, :, :].astype(np.float32)
+    if X.ndim == 3:
+        X = X[:, np.newaxis, :, :]
+        Y = Y[:, np.newaxis, :, :]
+        
+    X = X.astype(np.float32)
+    Y = Y.astype(np.float32)
 
-    # XXX: as of 6/22, it is better to snip borders and not add -1 labels
-    
     #----------------------------------------
     # some of the borders look bad (missing data but extrapolated labels, etc.).
     # mitigate that here
@@ -419,7 +424,7 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
                        model, n_epochs=n_epochs, mb_size=2, n_mb_per_epoch=25,
                        f_augment=f_augment,
                        out_dir=out_dir)
-        
+
         print('[info]: time to train model: %0.2f min' % ((time.time() - tic)/60.))
 
         #
