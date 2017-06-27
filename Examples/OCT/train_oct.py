@@ -18,6 +18,7 @@ __license__ = 'Apache 2.0'
 
 import os, sys, time
 from functools import partial
+import h5py
 
 import numpy as np
 from scipy.io import loadmat
@@ -51,6 +52,27 @@ def tian_load_data(mat_file):
     Y2 = np.transpose(Y2, [2, 0, 1])
 
     # assign slices to folds
+    # TODO: update if we learn anything about mapping of patients -> images
+    n_folds = 5
+    fold_id = np.mod(np.arange(X.shape[0]), n_folds)
+    
+    return X, Y1, Y2, fold_id
+
+
+
+def tian_load_wavelet_data(fn):
+    """ Loads preprocessed (multi-channel) version of Tian dataset."""
+    with h5py.File(fn) as h5:
+        X = h5['X_wavelet'].value
+        Y1 = h5['Y1'].value
+        Y2 = h5['Y2'].value
+
+    # shuffle dimensions
+    # I'm a little unclear why rows/cols got swapped ...
+    X = np.transpose(X, [0, 1, 3, 2]) 
+    Y1 = np.transpose(Y1, [0, 2, 1])
+    Y2 = np.transpose(Y2, [0, 2, 1])
+    
     # TODO: update if we learn anything about mapping of patients -> images
     n_folds = 5
     fold_id = np.mod(np.arange(X.shape[0]), n_folds)
@@ -115,26 +137,31 @@ def tian_preprocessing(X, Y, tile_size):
     """
 
     #----------------------------------------
-    # Pad vertical extent to a power of 2.
-    # This is because we want each "tile" to cover the full vertical extent of the image.
-    #----------------------------------------
-    delta_row = tile_size[0] - X.shape[1]
-
-    pad_shape = list(X.shape);  pad_shape[-2] = delta_row;
-    pad = np.ones(pad_shape, dtype=X.dtype)
-    #pad = np.ones((X.shape[0], delta_row, X.shape[2]), dtype=X.dtype)
-    X = np.concatenate((X, 0*pad), axis=1)
-    Y = np.concatenate((Y, TIAN_FILL_BELOW_CLASS*pad), axis=1)
-
-    #----------------------------------------
     # add "channel" dimension (if needed) and change to float32
     #----------------------------------------
     if X.ndim == 3:
         X = X[:, np.newaxis, :, :]
+    if Y.ndim == 3:
         Y = Y[:, np.newaxis, :, :]
         
     X = X.astype(np.float32)
     Y = Y.astype(np.float32)
+    
+    #----------------------------------------
+    # Pad vertical extent to a power of 2.
+    # This is because we want each "tile" to cover the full vertical extent of the image.
+    #----------------------------------------
+    n_examp, n_chan, n_row, n_col = X.shape
+    
+    delta_row = tile_size[0] - n_row
+
+    pad_x_shape = (n_examp, n_chan, delta_row, n_col)
+    pad_x = np.zeros(pad_x_shape, dtype=X.dtype)
+    X = np.concatenate((X, 0*pad_x), axis=-2)
+
+    pad_y_shape = (n_examp, 1, delta_row, n_col)
+    pad_y = np.ones(pad_y_shape, dtype=Y.dtype)
+    Y = np.concatenate((Y, TIAN_FILL_BELOW_CLASS*pad_y), axis=-2)
 
     #----------------------------------------
     # some of the borders look bad (missing data but extrapolated labels, etc.).
@@ -255,14 +282,15 @@ def tian_shift_updown(X, Y, max_shift=50):
     if delta == 0:
         return X, Y
     
-    fill = np.ones((n,d,delta,c), dtype=X.dtype)
+    fill_x = np.zeros((n,d,delta,c), dtype=X.dtype)
+    fill_y = np.ones((n,1,delta,c), dtype=Y.dtype)
     
     if np.random.rand() < .5:
-        X_out = np.concatenate((X[:, :, delta:, :], 0*fill), axis=2)
-        Y_out = np.concatenate((Y[:, :, delta:, :], TIAN_FILL_BELOW_CLASS*fill), axis=2)
+        X_out = np.concatenate((X[:, :, delta:, :], fill_x), axis=2)
+        Y_out = np.concatenate((Y[:, :, delta:, :], TIAN_FILL_BELOW_CLASS*fill_y), axis=2)
     else:
-        X_out = np.concatenate((0*fill, X[:, :, :-delta, :]), axis=2)
-        Y_out = np.concatenate((TIAN_FILL_ABOVE_CLASS*fill, Y[:, :, :-delta, :]), axis=2)
+        X_out = np.concatenate((fill_x, X[:, :, :-delta, :]), axis=2)
+        Y_out = np.concatenate((TIAN_FILL_ABOVE_CLASS*fill_y, Y[:, :, :-delta, :]), axis=2)
 
     assert(np.all(X_out.shape == X.shape))
     assert(np.all(Y_out.shape == Y.shape))
@@ -473,13 +501,18 @@ if __name__ == '__main__':
     # Load and preprocess data
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
-    # adjust this as needed for your system
-    fn=os.path.expanduser('~/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat')
-    X, Y1, Y2, fold_id = tian_load_data(fn)
+    if False:
+        # load the raw data
+        fn=os.path.expanduser('~/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat')
+        X, Y1, Y2, fold_id = tian_load_data(fn)
+    else:
+        # try out preprocessed data
+        X, Y1, Y2, fold_id = tian_load_wavelet_data('Tian_OCT_wavelet.mat')
 
+        
     # for now, we just use one set of annotations 
     Y = Y1
-    Y = tian_dense_labels(Y, X.shape[1])
+    Y = tian_dense_labels(Y, X.shape[-2])
     X,Y = tian_preprocessing(X, Y, tile_size)
 
     n_classes = np.sum(np.unique(Y) >= 0)
