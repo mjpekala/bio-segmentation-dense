@@ -8,7 +8,7 @@ train :
 	THEANO_FLAGS="device=gpu1,floatX=float32" python train_oct.py
 
 
-
+# some very crude hyperparameter grid search
 launch-fighters :
 	THEANO_FLAGS="device=gpu1,floatX=float32" nohup python train_oct.py trial_A 10 1000 &
 	sleep 5
