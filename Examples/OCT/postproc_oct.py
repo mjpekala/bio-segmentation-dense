@@ -80,7 +80,12 @@ def dense_to_boundary(Y_hat, class_label, f_regress=None):
     if Y_hat.ndim == 2:
         Y_hat = Y_hat[np.newaxis,...]
 
-    b_est = np.zeros((Y_hat.shape[0], Y_hat.shape[2]))
+    # Note: we use nan as a default value here in case (a) values are
+    # missing and (b) we are not asked ti interpolate them away.  This
+    # makes it clear to the caller (and subsequent metrics
+    # calculations) that there is no valid data at these locations.
+    b_est = np.nan*np.ones((Y_hat.shape[0], Y_hat.shape[2]))
+    
     for z in range(Y_hat.shape[0]):
         Yz = Y_hat[z,...]
         rows, cols = get_class_transitions(Yz, class_label)
