@@ -37,7 +37,7 @@ def get_class_transitions(Y_hat, upper_class, f_preproc=None):
 
 
 
-def simple_boundary_regression_1d(x, y, x_eval=np.arange(968), kern=None, reject_thresh=np.inf):
+def simple_boundary_regression_1d(x, y, x_eval, kern=None, reject_thresh=np.inf):
     """Simple GP regression for a single 1-dimensional boundary.
 
     TODO: tune hyperparameters.
