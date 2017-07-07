@@ -19,7 +19,7 @@ import GPy
 def get_class_transitions(Y_hat, upper_class, f_preproc=None):
     """Returns pixel locations where class transitions occur.
 
-        Y           : (r x c) tensor of dense (per-pixel) class estimates.
+        Y           : (R x C) tensor of dense (per-pixel) class estimates.
         upper_class : the class label immediately above the boundary of interest
     """
     assert(Y_hat.ndim == 2)
@@ -62,6 +62,8 @@ def simple_boundary_regression_1d(x, y, x_eval=np.arange(968), kern=None, reject
     m = GPy.models.GPRegression(x_obs, y_obs, kernel)
 
     # TODO: we need some kind of outlier rejection for lower lengthscales
+    # IDEA: fit with a fairly smooth GP then reject points more than N sigma; then, re-fit with a shorter lengthscale??
+    
     if np.isfinite(reject_thresh):
         raise ValueError('outlier rejection not yet implemented')
 
@@ -70,10 +72,33 @@ def simple_boundary_regression_1d(x, y, x_eval=np.arange(968), kern=None, reject
 
 
 
+def dense_to_boundary(Y_hat, class_label, f_regress=None):
+    """ Converts dense (per-pixel) estimates into single boundary estimates for a specified class.
+
+       Y_hat : (Z x R x C) matrix of Z images, each of which is RxC.
+    """
+    if Y_hat.ndim == 2:
+        Y_hat = Y_hat[np.newaxis,...]
+
+    b_est = np.zeros((Y_hat.shape[0], Y_hat.shape[2]))
+    for z in range(Y_hat.shape[0]):
+        Yz = Y_hat[z,...]
+        rows, cols = get_class_transitions(Yz, class_label)
+
+        if f_regress is not None:
+            y_hat = f_regress(cols, rows, np.arange(Yz.shape[1]))
+            b_est[z,:] = np.squeeze(y_hat)
+        else:
+            b_est[z,cols] = np.squeeze(rows)
+
+    return b_est
+
+
+
 def aggregate_boundary_error(Y_true, Y_hat):
     """
-        Y_true : (m x c) matrix of m true boundaries, each of which has c columns.
-        Y_hat  : (m x c) matrix of m boundary estimates, each of which has c columns. 
+        Y_true : (M x C) matrix of M true boundaries, each of which has C columns.
+        Y_hat  : (M x C) matrix of M boundary estimates, each of which has C columns. 
     """
 
     # ell_1 style metric
