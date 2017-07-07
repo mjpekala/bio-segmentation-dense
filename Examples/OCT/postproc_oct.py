@@ -22,7 +22,6 @@ def get_class_transitions(Y_hat, upper_class, f_preproc=None):
         Y           : (r x c) tensor of dense (per-pixel) class estimates.
         upper_class : the class label immediately above the boundary of interest
     """
-
     assert(Y_hat.ndim == 2)
 
     Yi = (Y_hat == upper_class)
@@ -38,7 +37,7 @@ def get_class_transitions(Y_hat, upper_class, f_preproc=None):
 
 
 
-def simple_boundary_regression_1d(x, y, x_eval=np.arange(968)):
+def simple_boundary_regression_1d(x, y, x_eval=np.arange(968), kern=None, reject_thresh=np.inf):
     """Simple GP regression for a single 1-dimensional boundary.
 
     TODO: tune hyperparameters.
@@ -57,10 +56,28 @@ def simple_boundary_regression_1d(x, y, x_eval=np.arange(968)):
     y_obs = y_obs - mu
 
     # fit GP
-    kernel = GPy.kern.RBF(input_dim=1, variance=50., lengthscale=20.) # TODO: hyper-parameter tuning!
+    if kern is None:
+        # some default hyper-parameters.  In practice, these should be determined via cross-validation
+        kernel = GPy.kern.RBF(input_dim=1, variance=50., lengthscale=20.) 
     m = GPy.models.GPRegression(x_obs, y_obs, kernel)
-    
+
     # TODO: we need some kind of outlier rejection for lower lengthscales
+    if np.isfinite(reject_thresh):
+        raise ValueError('outlier rejection not yet implemented')
 
     y_mu, y_sigma = m.predict(x_e)
     return y_mu + mu
+
+
+
+def aggregate_boundary_error(Y_true, Y_hat):
+    """
+        Y_true : (m x c) matrix of m true boundaries, each of which has c columns.
+        Y_hat  : (m x c) matrix of m boundary estimates, each of which has c columns. 
+    """
+
+    # ell_1 style metric
+    err = np.abs(Y_true - Y_hat,2)
+    mu = np.mean(err, axis=0)
+    sigma = np.std(err, axis=0)
+    return mu, sigma
