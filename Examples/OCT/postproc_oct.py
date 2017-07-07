@@ -37,6 +37,39 @@ def get_class_transitions(Y_hat, upper_class, f_preproc=None):
 
 
 
+def find_outliers(x_obs, y_obs):
+    """ TODO: a more rigorous approach.
+    """
+
+    def calc_outlier_metric(x,y):
+        kernel = GPy.kern.RBF(input_dim=1, variance=10., lengthscale=50.) 
+        m = GPy.models.GPRegression(x, y, kernel)
+        y_mu, y_sigma = m.predict(x)
+        sigma_dist = np.abs(y - y_mu) / y_sigma
+        return sigma_dist
+    
+    reshape_gpy = lambda v: v if v.ndim == 2 else v[:,np.newaxis]
+        
+    # GPy wants 2d data even for 1d problems
+    n = x_obs.size
+    assert(n == y_obs.size)
+    x_obs = reshape_gpy(x_obs)
+    y_obs = reshape_gpy(y_obs)
+
+    # incrementally remove outliers
+    is_outlier = np.zeros((n,), dtype=bool)
+    metric = calc_outlier_metric(x_obs, y_obs)
+    thresh = 5
+
+    while np.any(metric > thresh):
+        is_outlier[np.argmax(metric)] = np.True_
+        metric[:] = 0
+        metric[~is_outlier] = calc_outlier_metric(x_obs[~is_outlier], y_obs[~is_outlier])
+        
+    return np.concatenate((x_obs[is_outlier], y_obs[is_outlier]), axis=1)
+    
+    
+
 def simple_boundary_regression_1d(x, y, x_eval, kern=None, reject_thresh=np.inf):
     """Simple GP regression for a single 1-dimensional boundary.
 
@@ -97,17 +130,3 @@ def dense_to_boundary(Y_hat, class_label, f_regress=None):
             b_est[z,cols] = np.squeeze(rows)
 
     return b_est
-
-
-
-def aggregate_boundary_error(Y_true, Y_hat):
-    """
-        Y_true : (M x C) matrix of M true boundaries, each of which has C columns.
-        Y_hat  : (M x C) matrix of M boundary estimates, each of which has C columns. 
-    """
-
-    # ell_1 style metric
-    err = np.abs(Y_true - Y_hat,2)
-    mu = np.mean(err, axis=0)
-    sigma = np.std(err, axis=0)
-    return mu, sigma
