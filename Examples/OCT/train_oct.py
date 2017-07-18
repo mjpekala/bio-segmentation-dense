@@ -1,5 +1,10 @@
 """
-   Trains a dense (per-pixel) classifier on an OCT data set.
+   Trains a dense (per-pixel) classifier on OCT data sets.
+
+   Initially we focus on the data set of [tia16]; as more data becomes
+   available for training, we will switch to using this as a test data
+   (to facilitate comparisons with other algorithms that were not
+   explicitly trained on [tia16]).
 
    REFERENCES:
     [tia16] Tian et al. Performance evaluation of automated segmentation software 
@@ -7,7 +12,6 @@
             http://onlinelibrary.wiley.com/doi/10.1002/jbio.201500239/full
 """
 
-# TODO: mirror edges and more disciplined sampling of space during training!
 
 
 from __future__ import print_function
@@ -130,7 +134,7 @@ def tian_dense_labels(Y, n_rows):
 
 
 
-def tian_preprocessing(X, Y, tile_size):
+def tian_preprocessing(X, Y, tile_size, mirror_edges=False):
     """ Preprocessing to prepare Tian data for CNN.
 
       Y should be a set of dense class labels; see tian_dense_labels()
@@ -197,7 +201,7 @@ def tian_preprocessing(X, Y, tile_size):
     #----------------------------------------
     # edge mirroring
     #----------------------------------------
-    if True:
+    if mirror_edges:
         X = dt.mirror_edges_lr(X, 100)
         Y = dt.mirror_edges_lr(Y, 100)
         
@@ -479,7 +483,7 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
 
 
 
-        
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 if __name__ == '__main__':
     K.set_image_dim_ordering('th')
     n_folds = 5
@@ -529,6 +533,6 @@ if __name__ == '__main__':
     # Run experiment
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size,
-                                 layer_weights=layer_weights,
-                                 ace_tv_weights=ace_tv_weights,
-                                 out_dir=out_dir)
+                             layer_weights=layer_weights,
+                             ace_tv_weights=ace_tv_weights,
+                             out_dir=out_dir)
