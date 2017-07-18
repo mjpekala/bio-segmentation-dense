@@ -99,19 +99,21 @@ def fit_gp_hypers_1d(X_train, Y_train):
 
     # setup hypers to search over
     #
-    lengthscales = 10.0 + np.random.rand(5,1) * (col_max // 2)
-    variances = 10.0 + np.random.rand(5,1) * (col_max // 4)
-
-    lengthscales[0] = 20;  variances[0] = 50;  # value that may be reasonable
+    n_guesses = 200
+    hypers = np.random.rand(n_guesses,2)
+    hypers[:,0] = 10. + (col_max // 2) * hypers[:,0]  # h : lengthscale
+    hypers[:,1] = 10. + (col_max // 4) * hypers[:,1]  # sigma: lengthscale
+    hypers[0,:] = np.array([20.,50.])  # a value that may be reasonable
 
     # evaluate different hypers
     best_score = np.inf
     best_values = (None, None)
-    
-    for h, sigma in product(lengthscales, variances):
-        kernel = GPy.kern.RBF(input_dim=1, variance=sigma, lengthscale=h)
-        scores = []
 
+    for ii in range(n_guesses):
+        h, sigma = hypers[ii,0], hypers[ii,1]
+        kernel = GPy.kern.RBF(input_dim=1, variance=sigma, lengthscale=h)
+        
+        scores = []
         for k in all_images:
             r_true = Y_train[Y_train[:,2] == k, 0]
             c_true = Y_train[Y_train[:,2] == k, 1]
