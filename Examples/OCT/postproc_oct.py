@@ -9,8 +9,12 @@ __author__ = "mjp"
 __date__ = 'july 2017'
 
 
+import time
+from itertools import product
+
 import numpy as np
 from skimage.morphology import opening
+import pylab as plt
 
 import GPy 
 
@@ -37,7 +41,7 @@ def get_class_transitions(Y_hat, upper_class, f_preproc=None):
 
 
 
-def find_outliers(x_obs, y_obs):
+def find_inliers(x_obs, y_obs):
     """ TODO: a more rigorous approach.
     """
 
@@ -56,21 +60,78 @@ def find_outliers(x_obs, y_obs):
     x_obs = reshape_gpy(x_obs)
     y_obs = reshape_gpy(y_obs)
 
-    # incrementally remove outliers
+    # Incrementally remove outliers.
+    #
+    # We do it this way (vs in one pass) since outliers can pull the
+    # GP estimate away from inliers.
     is_outlier = np.zeros((n,), dtype=bool)
     metric = calc_outlier_metric(x_obs, y_obs)
     thresh = 5
 
     while np.any(metric > thresh):
-        is_outlier[np.argmax(metric)] = np.True_
+        is_outlier[np.argmax(metric)] = np.True_  # use np.True_ so that ~  works
         metric[:] = 0
         metric[~is_outlier] = calc_outlier_metric(x_obs[~is_outlier], y_obs[~is_outlier])
-        
-    return np.concatenate((x_obs[is_outlier], y_obs[is_outlier]), axis=1)
-    
+
+    return x_obs[~is_outlier], y_obs[~is_outlier]
     
 
-def simple_boundary_regression_1d(x, y, x_eval, kern=None, reject_thresh=np.inf):
+
+
+def fit_gp_hypers_1d(X_train, Y_train):
+    """Fits Gaussian process hyperparameters 
+
+    X_train : A (M x 3) matrix of estimated OCT boundary points in the form:
+
+                   row_1, column_1, boundary_id_1
+                   row_2, column_2, boundary_id_2
+                   ...
+
+              where boundary_id is an integer that identifies which image
+              the corresponding coordinate is associated with.
+
+    Y_train : A (N x 3) matrix of true OCT boundary points in the same 
+              format as X_train.  Note that N will not equal M in general since
+              X_train will have missing and/or duplicate points.
+    """
+    all_images = np.unique(Y_train[:,2])
+    col_max = np.max(Y_train[:,1])
+
+    # setup hypers to search over
+    #
+    lengthscales = 10.0 + np.random.rand(5,1) * (col_max // 2)
+    variances = 10.0 + np.random.rand(5,1) * (col_max // 4)
+
+    lengthscales[0] = 20;  variances[0] = 50;  # value that may be reasonable
+
+    # evaluate different hypers
+    best_score = np.inf
+    best_values = (None, None)
+    
+    for h, sigma in product(lengthscales, variances):
+        kernel = GPy.kern.RBF(input_dim=1, variance=sigma, lengthscale=h)
+        scores = []
+
+        for k in all_images:
+            r_true = Y_train[Y_train[:,2] == k, 0]
+            c_true = Y_train[Y_train[:,2] == k, 1]
+            r_hat = simple_boundary_regression_1d(X_train[X_train[:,2] == k, 1],
+                                                  X_train[X_train[:,2] == k, 0],
+                                                  c_true, kernel=kernel)
+            err_l2 = np.sum((r_hat - r_true)**2)**.5
+            err_inf = np.max(np.abs(r_hat - r_true))
+            scores.append(err_l2)
+
+        score = np.median(np.array(scores))
+        if score < best_score:
+            best_score = score
+            best_values = (h, sigma)
+            print(h, sigma, score)
+
+    return best_values
+
+
+def simple_boundary_regression_1d(x, y, x_eval, kernel=None):
     """Simple GP regression for a single 1-dimensional boundary.
 
     TODO: tune hyperparameters.
@@ -89,7 +150,7 @@ def simple_boundary_regression_1d(x, y, x_eval, kern=None, reject_thresh=np.inf)
     y_obs = y_obs - mu
 
     # fit GP
-    if kern is None:
+    if kernel is None:
         # some default hyper-parameters.  In practice, these should be determined via cross-validation
         kernel = GPy.kern.RBF(input_dim=1, variance=50., lengthscale=20.) 
     m = GPy.models.GPRegression(x_obs, y_obs, kernel)
@@ -97,9 +158,6 @@ def simple_boundary_regression_1d(x, y, x_eval, kern=None, reject_thresh=np.inf)
     # TODO: we need some kind of outlier rejection for lower lengthscales
     # IDEA: fit with a fairly smooth GP then reject points more than N sigma; then, re-fit with a shorter lengthscale??
     
-    if np.isfinite(reject_thresh):
-        raise ValueError('outlier rejection not yet implemented')
-
     y_mu, y_sigma = m.predict(x_e)
     return y_mu + mu
 
@@ -124,7 +182,9 @@ def dense_to_boundary(Y_hat, class_label, f_regress=None):
         rows, cols = get_class_transitions(Yz, class_label)
 
         if f_regress is not None:
-            y_hat = f_regress(cols, rows, np.arange(Yz.shape[1]))
+            #x_obs, y_obs = find_inliers(cols, rows)
+            x_obs, y_obs = cols, rows
+            y_hat = f_regress(x_obs, y_obs, np.arange(Yz.shape[1]))
             b_est[z,:] = np.squeeze(y_hat)
         else:
             b_est[z,cols] = np.squeeze(rows)
