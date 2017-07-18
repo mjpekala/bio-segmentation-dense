@@ -78,7 +78,7 @@ def find_inliers(x_obs, y_obs):
 
 
 
-def fit_gp_hypers_1d(X_train, Y_train):
+def fit_gp_hypers_1d(X_train, Y_train, n_samps=50):
     """Fits Gaussian process hyperparameters 
 
     X_train : A (M x 3) matrix of estimated OCT boundary points in the form:
@@ -99,8 +99,7 @@ def fit_gp_hypers_1d(X_train, Y_train):
 
     # setup hypers to search over
     #
-    n_guesses = 200
-    hypers = np.random.rand(n_guesses,2)
+    hypers = np.random.rand(n_samps,2)
     hypers[:,0] = 10. + (col_max // 2) * hypers[:,0]  # h : lengthscale
     hypers[:,1] = 10. + (col_max // 4) * hypers[:,1]  # sigma: lengthscale
     hypers[0,:] = np.array([20.,50.])  # a value that may be reasonable
@@ -109,7 +108,7 @@ def fit_gp_hypers_1d(X_train, Y_train):
     best_score = np.inf
     best_values = (None, None)
 
-    for ii in range(n_guesses):
+    for ii in range(n_samps):
         h, sigma = hypers[ii,0], hypers[ii,1]
         kernel = GPy.kern.RBF(input_dim=1, variance=sigma, lengthscale=h)
         
@@ -131,6 +130,7 @@ def fit_gp_hypers_1d(X_train, Y_train):
             print(h, sigma, score)
 
     return best_values
+
 
 
 def simple_boundary_regression_1d(x, y, x_eval, kernel=None):
