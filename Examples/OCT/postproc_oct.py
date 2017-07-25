@@ -129,7 +129,7 @@ def fit_gp_hypers_1d(X_train, Y_train, n_samps=50):
         if score < best_score:
             best_score = score
             best_values = (h, sigma)
-            print(h, sigma, score)
+            print('[fit_gp_hypers_1d]: updating best hypers: ', h, sigma, score)
 
     return best_values
 
