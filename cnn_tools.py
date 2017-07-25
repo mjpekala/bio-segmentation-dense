@@ -112,12 +112,12 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     # This is encoded as a "zero-hot" vector in y_true.
     #
     is_pixel_labeled = K.sum(y_true, axis=1)               # for one-hot or zero-hot, this should be 0 or 1
-    is_pixel_labeled = is_pixel_labeled.clip(0,1)          # for multi-label case
+    is_pixel_labeled = K.clip(is_pixel_labeled, 0, 1)          # for multi-label case
 
     # Normally y_hat is coming from a sigmoid (or other "squashing")
     # and therefore never reaches exactly 0 or 1 (so the call to log
     # below is safe).  However, out of paranoia, we call clip() here.
-    y_hat = y_hat.clip(1e-9, 1 - 1e-9)
+    y_hat = K.clip(y_hat, 1e-9, 1 - 1e-9)
 
     # the categorical crossentropy loss
     #
@@ -155,7 +155,7 @@ def total_variation_loss(y_true, y_hat):
     
     # a no-op involving y_true so that Theano doesn't complain about
     # unused nodes in the computational graph.
-    zero = K.sum(0 * y_true.flatten())
+    zero = K.sum(0 * K.flatten(y_true))
 
     return K.sum(K.pow(a + b, 1.25)) + zero
 

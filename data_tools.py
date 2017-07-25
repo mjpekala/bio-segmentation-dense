@@ -17,6 +17,8 @@ import pdb
 from PIL import Image
 import pylab as plt
 from scipy.interpolate import griddata
+from scipy.misc import imfilter, imresize
+from scipy.ndimage.filters import gaussian_filter
 
 
 
@@ -59,7 +61,7 @@ def load_multilayer_tiff(data_file):
             break # this just means hit end of file (not really an error)
 
     # list of images -> 3d tensor
-    X = np.concatenate(X, axis=0) 
+    X = np.concatenate(X, axis=0)
 
     # add a channel dimension 
     if X.ndim == 3:
@@ -99,8 +101,8 @@ def pixelwise_one_hot(Y, n_classes):
     return Y_onehot
 
 
-    
-def random_minibatch(X, Y, num_in_batch, sz, p_sym8=0.0, p_fliplr=0.0, f_upstream=None):
+
+def random_minibatch(X, Y, num_in_batch, sz, p_sym8=0.0, p_fliplr=0.0, f_upstream=None, do_random_brightness_adj=False, do_random_blur_or_sharpen=False, do_random_zoom_and_crop=False):
     """ Creates a single minibatch of training data by randomly sampling
     subsets of the training data (X, Y).
 
@@ -144,6 +146,46 @@ def random_minibatch(X, Y, num_in_batch, sz, p_sym8=0.0, p_fliplr=0.0, f_upstrea
         if p_fliplr > 0 and np.random.rand() < p_fliplr:
             Xi = Xi[:, :, :, ::-1]
             Yi = Yi[:, :, :, ::-1]
+
+        Xi = np.transpose(Xi[0], (1, 2, 0))
+        Yi = np.transpose(Yi[0], (1, 2, 0))
+
+        if do_random_brightness_adj:
+            Xi = brightness(Xi, var=0.3)
+
+        if do_random_blur_or_sharpen:
+            Xi = blur_or_sharpen(Xi, prob_blur=0.25, prob_sharpen=0.25, min_sigma=0.5, max_sigma=1.5)
+
+        # plt.figure()
+        # plt.imshow(Xi[:, :, 0], cmap='gray', vmin=0, vmax=255)
+        # plt.figure()
+        # plt.imshow(Yi[:, :, 0], cmap='gray', vmin=0, vmax=5)
+
+        if do_random_zoom_and_crop and np.random.rand() < 0.75:
+            Xi = np.squeeze(Xi)
+            Yi = np.squeeze(Yi)
+            orig_size = Xi.shape
+
+            zoom_factor = np.random.uniform(low=1.0, high=1.5)
+            Xi = imresize(Xi, zoom_factor)
+            # Yi *= 50
+            Yi = imresize(Yi.astype(np.uint8), zoom_factor, interp='nearest').astype(np.float32)
+            # Yi /= 50
+
+            Xi = np.expand_dims(Xi, axis=-1)
+            Yi = np.expand_dims(Yi, axis=-1)
+
+            Xi = crop(Xi, crop_size=orig_size)
+            Yi = crop(Yi, crop_size=orig_size)
+
+        # plt.figure()
+        # plt.imshow(Xi[:, :, 0], cmap='gray', vmin=0, vmax=255)
+        # plt.figure()
+        # plt.imshow(Yi[:, :, 0], cmap='gray', vmin=0, vmax=5)
+        # plt.show()
+
+        Xi = np.expand_dims(np.transpose(Xi, (2, 0, 1)), axis=0)
+        Yi = np.expand_dims(np.transpose(Yi, (2, 0, 1)), axis=0)
 
         if False:
             Xi,Yi = apply_warping(Xi, Yi)
@@ -217,6 +259,88 @@ def random_crop(tensors, sz):
         X = tensors
         return X[..., ri:ri+sz[0], ci:ci+sz[1]]
 
+
+def brightness(im, var=0.5, prng=np.random):
+    alpha = 2 * 0 * var
+    # alpha = 2 * prng.rand() * var
+    alpha += 1 - var
+    im = im * alpha
+    return np.clip(im, 0, 255)
+
+
+def blur(im, min_sigma=0.5, max_sigma=3.0, prng=np.random):
+    if min_sigma == max_sigma:
+        sigma = min_sigma
+    else:
+        sigma = prng.uniform(low=min_sigma, high=max_sigma)
+    gaussian_filter(im, output=im, sigma=sigma)
+
+    return im
+
+
+def blur_or_sharpen(im, prob_blur=0.25, min_sigma=0.5, max_sigma=3.0, prob_sharpen=0.25, prng=np.random):
+    prob_total = prob_blur + prob_sharpen
+    assert prob_total <= 1.0
+    uniform = prng.uniform()
+    if uniform <= prob_blur:
+        return blur(im, min_sigma=min_sigma, max_sigma=max_sigma, prng=prng)
+    elif uniform <= prob_total:
+        return np.expand_dims(imfilter(np.squeeze(im), "sharpen"), axis=-1)
+    else:
+        return im
+
+def zoom(im, min_zoom, max_zoom, prng=np.random, interp='bilinear'):
+
+    if min_zoom == max_zoom:
+        zoom_factor = min_zoom
+    else:
+        zoom_factor = prng.uniform(low=min_zoom, high=max_zoom)
+
+    # im = scipy.ndimage.zoom(im, zoom_factor)
+    im = imresize(im, zoom_factor, interp=interp)
+
+    return im
+
+
+def crop(im, crop_size, crop_corner_loc="center", random_crop_amount=1.0, prng=np.random):
+    # Handle cases of special crop_corner_loc values
+    if isinstance(crop_corner_loc, tuple):
+        crop_corner_loc = crop_corner_loc
+    elif crop_corner_loc == "random":
+        # set crop_corner_loc to crop center
+        crop_corner_loc = ((im.shape[0] / 2) - (crop_size[0] / 2), (im.shape[1] / 2) - (crop_size[1] / 2))
+        # if random_crop_amount not a tuple, make it one, and use it's value for both row and col amounts
+        if not isinstance(random_crop_amount, tuple):
+            random_crop_amount = (random_crop_amount, random_crop_amount)
+
+        # print "im", im.shape
+        # print "crop_corner_loc", crop_corner_loc
+
+        # calculate the allowable shift of the crop, based on random_crop_amount percentage
+        crop_allowable_shift = (int(crop_corner_loc[0] * random_crop_amount[0]),
+                                int(crop_corner_loc[1] * random_crop_amount[1]))
+        # print "crop_allowable_shift", crop_allowable_shift
+
+
+        # shift crop randomly in range 0 to crop_allowable_shift, in either positive or negative direction
+        # need to convert to list temp to do assignment...
+        crop_corner_loc = list(crop_corner_loc)
+        if crop_allowable_shift[0] != 0:
+            crop_corner_loc[0] = crop_corner_loc[0] + prng.randint(-1 * crop_allowable_shift[0], crop_allowable_shift[0])
+        if crop_allowable_shift[1] != 0:
+            crop_corner_loc[1] = crop_corner_loc[1] + prng.randint(-1 * crop_allowable_shift[1], crop_allowable_shift[1])
+        crop_corner_loc = tuple(crop_corner_loc)
+
+    else:
+        # set crop_corner_loc to crop center
+        crop_corner_loc = ((im.shape[0] / 2) - (crop_size[0] / 2), (im.shape[1] / 2) - (crop_size[1] / 2))
+
+    # crop image
+    im = im[crop_corner_loc[0]: crop_corner_loc[0] + crop_size[0],
+            crop_corner_loc[1]: crop_corner_loc[1] + crop_size[1],
+            :]
+
+    return im
 
 
 def tile_generator(X, sz, offset=[0,0], stride=None):

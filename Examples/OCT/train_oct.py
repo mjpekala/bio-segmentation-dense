@@ -21,6 +21,7 @@ __license__ = 'Apache 2.0'
 
 
 import os, sys, time
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 from functools import partial
 import h5py
 
@@ -31,6 +32,7 @@ from sklearn.metrics import confusion_matrix
 np.random.seed(9999) # before importing Keras...
 from keras import backend as K
 import theano
+import matplotlib.pyplot as plt
 
 sys.path.append('../..')
 import cnn_tools as ct
@@ -447,8 +449,9 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
         model = ct.create_unet((X.shape[1], tile_size[0], tile_size[1]), n_classes, f_loss=loss)
         model.name = 'oct_seg_fold%d' % test_fold
 
-        # TODO: add some kind of intensity augmentation?  we seem to suffer in the darker regions...
         f_augment = partial(dt.random_minibatch, p_fliplr=.5, f_upstream=tian_shift_updown)
+        # more rigorous data augmentation
+        # f_augment = partial(dt.random_minibatch, p_fliplr=.5, f_upstream=tian_shift_updown, do_random_brightness_adj=True, do_random_blur_or_sharpen=True, do_random_zoom_and_crop=True)
 
         tic = time.time()
         ct.train_model(X[train_slices,...], Y[train_slices,...],
@@ -507,6 +510,7 @@ if __name__ == '__main__':
     if True:
         # load the raw data
         fn=os.path.expanduser('~/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat')
+        # fn=os.path.expanduser('./jbio201500239-sup-0003-Data-S1.mat')
         X, Y1, Y2, fold_id = tian_load_data(fn)
     else:
         # try out preprocessed data
@@ -533,6 +537,7 @@ if __name__ == '__main__':
     # Run experiment
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size,
+                             n_epochs=200,
                              layer_weights=layer_weights,
                              ace_tv_weights=ace_tv_weights,
                              out_dir=out_dir)
