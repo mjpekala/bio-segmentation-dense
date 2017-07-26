@@ -41,7 +41,7 @@ def get_class_transitions(Y_hat, upper_class, f_preproc=None):
 
 
 
-def find_inliers(x_obs, y_obs):
+def find_outliers_via_gp(x_obs, y_obs):
     """ TODO: a more rigorous approach.
     """
 
@@ -73,7 +73,7 @@ def find_inliers(x_obs, y_obs):
         metric[:] = 0
         metric[~is_outlier] = calc_outlier_metric(x_obs[~is_outlier], y_obs[~is_outlier])
 
-    return x_obs[~is_outlier], y_obs[~is_outlier]
+    return is_outlier
     
 
 
@@ -121,9 +121,11 @@ def fit_gp_hypers_1d(X_train, Y_train, n_samps=50):
                                                   c_true, kernel=kernel)
             err_l2 = np.sum((r_hat - r_true)**2)**.5
             err_inf = np.max(np.abs(r_hat - r_true))
-            scores.append(err_l2)
+            #scores.append(err_l2)
+            scores.append(err_inf)
 
-        score = np.median(np.array(scores))
+        #score = np.median(np.array(scores))
+        score = np.sum(np.array(scores))
         if score < best_score:
             best_score = score
             best_values = (h, sigma)
