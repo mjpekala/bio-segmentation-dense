@@ -47,6 +47,7 @@ from data_tools import *
 
 import sklearn.metrics as skm
 import theano
+import tensorflow as tf
 
 
 
@@ -186,7 +187,27 @@ def monotonic_in_row_loss(y_true, y_hat):
 
     return K.sum(K.square(diff)) + zero
 
-    
+
+def l1_smooth_loss(y_true, y_pred):
+    """Compute L1-smooth loss.
+
+    # Arguments
+        y_true: Ground truth bounding boxes,
+            tensor of shape (?, num_boxes, 4).
+        y_pred: Predicted bounding boxes,
+            tensor of shape (?, num_boxes, 4).
+
+    # Returns
+        l1_loss: L1-smooth loss, tensor of shape (?, num_boxes).
+
+    # References
+        https://arxiv.org/abs/1504.08083
+    """
+    abs_loss = tf.abs(y_true - y_pred)
+    sq_loss = 0.5 * (y_true - y_pred) ** 2
+    l1_loss = tf.where(tf.less(abs_loss, 1.0), sq_loss, abs_loss - 0.5)
+    return tf.reduce_sum(l1_loss, -1)
+
 
 def make_composite_loss(y_true, y_hat, loss_a, loss_b, w_a, w_b):
     """ Constructs a linear combination of two loss functions."""
@@ -408,3 +429,90 @@ def deploy_model(X, model, two_pass=False):
         
     return Y_hat
 
+def ensemble_models(X, Y, model, ensemble_model_weights, save_results=False, display_results=False):
+    Y_hat_raw_per_model = []
+    for weights in ensemble_model_weights:
+        model.load_weights(weights)
+        Y_hat_raw_per_model.append(
+            np.squeeze(np.asarray([deploy_model(X[[ii, ], ...], model, two_pass=True) for ii in range(X.shape[0])])))
+    Y_hat_raw_per_model = np.asarray(Y_hat_raw_per_model)
+
+    Y_hat_per_model = np.argmax(Y_hat_raw_per_model, axis=2)
+
+    Y_hat_raw_ensemble_mean = np.mean(Y_hat_raw_per_model, axis=0)
+
+
+    Y_hat_ensemble_mean = np.argmax(Y_hat_raw_ensemble_mean, axis=1)
+    Y_hat_ensemble_std = np.std(Y_hat_raw_ensemble_mean, axis=1)
+
+    if save_results:
+        np.savez("Y_ensemble_results.npz", X=X, Y=Y, Y_hat_raw_per_model=Y_hat_raw_per_model,
+                 Y_hat_raw_ensemble_mean=Y_hat_raw_ensemble_mean, Y_hat_per_model=Y_hat_per_model,
+                 Y_hat_ensemble_mean=Y_hat_ensemble_mean, Y_hat_ensemble_std=Y_hat_ensemble_std)
+
+    if display_results:
+        import matplotlib.pyplot as plt
+
+        for example_i in range(len(Y_hat_ensemble_mean)):
+            for model_i in range(len(Y_hat_per_model)):
+                plt.figure()
+                plt.title('Y_hat_ensemble_%d (Example %d)' % (model_i, example_i))
+                plt.imshow(Y_hat_per_model[model_i, example_i])
+                plt.colorbar()
+
+            plt.figure()
+            plt.title('Y_hat_ensemble_mean (Example %d)' % example_i)
+            plt.imshow(Y_hat_ensemble_mean[example_i])
+            plt.colorbar()
+
+            plt.figure()
+            plt.title('Y_hat_ensemble_std (Example %d)' % example_i)
+            plt.imshow((Y_hat_ensemble_std[example_i] * 255.0).astype("uint8"))
+            plt.colorbar()
+
+            plt.figure()
+            plt.title('Y (Example %d)' % example_i)
+            plt.imshow(Y[example_i])
+            plt.colorbar()
+
+            plt.show()
+            plt.close("all")
+
+    return Y_hat_raw_per_model
+
+def main():
+    # Testing ensemble_models()...
+    K.set_image_dim_ordering('th')
+    from keras.models import load_model
+
+    tile_size = (512, 256)
+    layer_weights = [1, 10, 10, 10, 10, 1, 0]
+    ace_tv_weights = [20, .01]
+    ensemble_model_weights = [
+        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_0/oct_seg_fold0_weights_epoch0388.hdf5",
+        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_1/PID11899_oct_seg_fold0_weights_epoch0440.hdf5",
+        # "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_2/PID22277_oct_seg_fold0_weights_epoch0468.hdf5",
+        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_3/PID555_oct_seg_fold0_weights_epoch0433.hdf5",
+        # "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_4/PID12142_oct_seg_fold0_weights_epoch0482.hdf5",
+        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG1/oct_seg_fold0_weights_epoch0199.hdf5",
+        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG2/oct_seg_fold0_weights_epoch0155.hdf5",
+        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/L1_SMOOTH/oct_seg_fold0_weights_epoch0178.hdf5",
+        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/NO_CHANGES/oct_seg_fold0_weights_epoch0199.hdf5",
+        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/NO_CHANGES_2/oct_seg_fold0_weights_epoch0188.hdf5",
+    ]
+
+    results = np.load("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_0/oct_seg_fold0_deploy_final.npz")
+    X = results['X'][results['test_slices']]
+    Y = np.squeeze(results['Y'][results['test_slices']])
+    n_classes = len(np.unique(Y[Y >= 0].flatten()))
+    ace_w = partial(pixelwise_ace_loss, w=np.array(layer_weights))
+    loss = partial(make_composite_loss,
+                   loss_a=ace_w, w_a=ace_tv_weights[0],
+                   loss_b=total_variation_loss, w_b=ace_tv_weights[1])
+
+    model = create_unet((X.shape[1], tile_size[0], tile_size[1]), n_classes, f_loss=loss)
+
+    ensemble_models(X, Y, model, ensemble_model_weights, save_results=False, display_results=True)
+
+if __name__ == '__main__':
+    main()

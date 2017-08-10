@@ -415,7 +415,7 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
     print('ACE / TV weights: %s' % str(ace_tv_weights))
     
     n_classes = len(np.unique(Y[Y>=0].flatten()))
-    sys.stdout = Tee(os.path.join(out_dir, 'logfile.txt'))
+    sys.stdout = Tee(os.path.join(out_dir, 'PID%d_logfile.txt' % os.getpid()))
     
     for test_fold in range(n_folds):
         if test_fold > 0: break # TEMP only run one fold for now while testing
@@ -439,7 +439,8 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
         loss = partial(ct.make_composite_loss,
                            loss_a=ace_w, w_a=ace_tv_weights[0],
                            loss_b=ct.total_variation_loss, w_b=ace_tv_weights[1])
-                           #loss_b=ct.monotonic_in_row_loss, w_b=0.9)
+                           # loss_b=ct.l1_smooth_loss, w_b=ace_tv_weights[1])
+                           # loss_b=ct.monotonic_in_row_loss, w_b=0.9)
         loss.__name__ = 'custom loss function'  # Keras checks this for something
 
         #
@@ -447,11 +448,11 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
         # Note: I reduced the mini-batch size since the tiles are larger now.
         #
         model = ct.create_unet((X.shape[1], tile_size[0], tile_size[1]), n_classes, f_loss=loss)
-        model.name = 'oct_seg_fold%d' % test_fold
+        model.name = 'PID%d_oct_seg_fold%d' % (os.getpid(), test_fold)
 
-        f_augment = partial(dt.random_minibatch, p_fliplr=.5, f_upstream=tian_shift_updown)
+        # f_augment = partial(dt.random_minibatch, p_fliplr=.5, f_upstream=tian_shift_updown)
         # more rigorous data augmentation
-        # f_augment = partial(dt.random_minibatch, p_fliplr=.5, f_upstream=tian_shift_updown, do_random_brightness_adj=True, do_random_blur_or_sharpen=True, do_random_zoom_and_crop=True)
+        f_augment = partial(dt.random_minibatch, p_fliplr=.5, f_upstream=tian_shift_updown, do_random_brightness_adj=True, do_random_blur_or_sharpen=True, do_random_zoom_and_crop=False)
 
         tic = time.time()
         ct.train_model(X[train_slices,...], Y[train_slices,...],
