@@ -42,7 +42,8 @@ def get_class_transitions(Y_hat, y_above):
     transitions = np.logical_and(Yi[:-1,:], Yii[1:,:])
     rows, cols = np.nonzero(transitions)
 
-    return rows, cols
+    #return rows, cols
+    return np.c_[rows, cols]  # return as a two-column matrix
 
 
 
