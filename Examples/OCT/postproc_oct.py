@@ -42,8 +42,9 @@ def get_class_transitions(Y_hat, y_above):
     transitions = np.logical_and(Yi[:-1,:], Yii[1:,:])
     rows, cols = np.nonzero(transitions)
 
+    idx = np.argsort(cols)
     #return rows, cols
-    return np.c_[rows, cols]  # return as a two-column matrix
+    return np.c_[rows[idx], cols[idx]]  # return as a two-column matrix
 
 
 
