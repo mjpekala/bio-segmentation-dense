@@ -2,10 +2,11 @@
 #
 # mjp, may 2017
 
-
+CC=python
+#CC=THEANO_FLAGS="device=gpu1,floatX=float32" python 
 
 train :
-	THEANO_FLAGS="device=gpu1,floatX=float32" python train_oct.py
+	$(CC) train_oct.py
 
 
 # some very crude hyperparameter grid search
