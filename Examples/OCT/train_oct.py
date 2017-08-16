@@ -59,8 +59,12 @@ def tian_load_data(mat_file):
 
     # assign slices to folds
     # TODO: update if we learn anything about mapping of patients -> images
+    #
+    # UPDATE: changed fold ids based on how the images are laid out!
+    #
     n_folds = 5
-    fold_id = np.mod(np.arange(X.shape[0]), n_folds)
+    fold_id = np.floor(np.arange(X.shape[0]) / n_folds)
+
     
     return X, Y1, Y2, fold_id
 
