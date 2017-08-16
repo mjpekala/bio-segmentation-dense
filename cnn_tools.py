@@ -356,6 +356,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
             print('[train_model]: recent train loss: %0.3f' % np.mean(score_all))
             
         print('[train_model]: acc on validation data:   %0.3f' % acc)
+        print('[train_model]: optimizer iters:          %d' % K.get_value(model.optimizer.iterations))
         
         if n_classes == 2 and np.any(Y_valid_hat > 0):
             # easy to do an f1 score in binary case
@@ -479,6 +480,7 @@ def ensemble_models(X, Y, model, ensemble_model_weights, save_results=False, dis
             plt.close("all")
 
     return Y_hat_raw_per_model
+
 
 def main():
     # Testing ensemble_models()...
