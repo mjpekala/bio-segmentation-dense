@@ -63,8 +63,7 @@ def tian_load_data(mat_file):
     # UPDATE: changed fold ids based on how the images are laid out!
     #
     n_folds = 5
-    fold_id = np.floor(np.arange(X.shape[0]) / n_folds)
-
+    fold_id = np.floor(np.arange(X.shape[0]) / n_folds).astype(np.int32)
     
     return X, Y1, Y2, fold_id
 
@@ -331,89 +330,12 @@ class Tee(object):
         pass # for python 3, evidently
         
 
-        
-def ex_detect_then_segment(X, Y, folds, tile_size, n_epochs=25, out_dir='./Ex_Detect_and_Segment'):
-
-    raise RuntimeError('this was an old approach.  I do not recommend using it')
-
-    # class labels for a "layer detection" problem
-    Y_binary = np.copy(Y)
-    Y_binary[Y_binary > TIAN_FILL_ABOVE_CLASS and Y_binary < TIAN_FILL_BELOW_CLASS] = 1
-
-    
-    for test_fold in range(n_folds):
-        if test_fold > 0: break # TEMP TEMP TEMP!! just for quick testing!
-            
-        #
-        # determine train/valid split for this fold
-        #
-        avail_folds = [x for x in range(n_folds) if x != test_fold]
-        train_folds = avail_folds[:-1]
-        valid_fold = avail_folds[-1]
-        print('train folds: ', train_folds, ', valid fold(s): ', valid_fold, ', test fold(s): ', test_fold)
-
-        train_slices = [x for x in range(X.shape[0]) if fold_id[x] in train_folds]
-        valid_slices = [x for x in range(X.shape[0]) if fold_id[x] == valid_fold]
-        test_slices  = [x for x in range(X.shape[0]) if fold_id[x] == test_fold]
-
-        #
-        # train and deploy a model for the "layer detection" problem
-        #
-        model = ct.create_unet((1, tile_size[0], tile_size[1]), 2)
-        model.name = 'oct_detection_fold%d' % test_fold
-        
-        tic = time.time()
-        ct.train_model(X[train_slices,...], Y_binary[train_slices,...],
-                       X[valid_slices,...], Y_binary[valid_slices,...],
-                       model, n_epochs=n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False,
-                       out_dir=out_dir)
-        
-        print('[info]: time to train "detection" model: %0.2f min' % ((time.time() - tic)/60.))
-
-        tv_slices = [x for x in range(X.shape[0]) if fold_id[x] in train_folds + [valid_fold,]]
-        Y_hat_layers = ct.deploy_model(X[tv_slices,...], model)
-        Y_hat_layers = Y_hat_layers[:,1,:,:] # keep only the postive class estimate
-
-        #
-        # augment data set for the layer segmentation problem
-        #
-        crops = tian_find_crops(Y_hat_layers, .33)
-        X_train_s = _crop_rows(X[train_slices, ...], crops)
-        Y_train_s = _crop_rows(Y[train_slices, ...], crops)
-        X_valid_s = _crop_rows(X[valid_slices, ...], crops)
-        Y_valid_s = _crop_rows(Y[valid_slices, ...], crops)
-
-        model_s = ct.create_unet((1, 128, 128), n_classes)  # note tile size change
-        model_s.name = 'oct_segmentation_fold%d' % test_fold
+       
  
-        tic = time.time()
-        ct.train_model(X_train_s, Y_train_s, X_valid_s, Y_valid_s, 
-                       model_s, n_epochs=n_epochs, mb_size=16, n_mb_per_epoch=25, xform=False,
-                       out_dir=out_dir)
-        print('[info]: time to train "segmentation" model: %0.2f min' % ((time.time() - tic)/60.))
-
-        #
-        # Deploy on test data
-        #
-
-        # TODO: some combo of model and model_s may be needed??
-        Y_hat_s = ct.deploy_model(X, model_s)
-        Y_hat_s = np.argmax(Y_hat_s, axis=1)
-        acc_test = 100. * np.sum(Y_hat_s[test_slices,...] == np.squeeze(Y[test_slices,...])) / Y_hat_s[test_slices,...].size
-
-        C = confusion_matrix(Y[test_slices,...].flatten(), Y_hat_s[test_slices,...].flatten())
-        acc_per_class = 100. * np.diag(C) / np.sum(C,axis=1)
-
-        print('acc test (aggregate): ', acc_test)
-        print('acc test (per-class): ', acc_per_class)
-        print(C)
-
-
-        
-def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
-                                 layer_weights = [1, 10, 10, 10, 10, 1],
-                                 ace_tv_weights = [20, .01],
-                                 out_dir='./Ex_ACE_and_TV'):
+def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=30,
+                             layer_weights = [1, 10, 10, 10, 10, 1],
+                             ace_tv_weights = [20, .01],
+                             out_dir='./Ex_ACE_and_TV'):
     """ Single classifier that encourages smooth estimates.
     """
 
@@ -424,22 +346,26 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
     print('ACE / TV weights: %s' % str(ace_tv_weights))
     
     n_classes = len(np.unique(Y[Y>=0].flatten()))
+    all_fold_ids = np.unique(folds).astype(np.int32)
+    n_folds = len(all_fold_ids)
+
     sys.stdout = Tee(os.path.join(out_dir, 'PID%d_logfile.txt' % os.getpid()))
     
-    for test_fold in range(n_folds):
+    for test_fold in all_fold_ids:
         if test_fold > 0: break # TEMP only run one fold for now while testing
             
         #
         # determine train/valid split for this fold
         #
-        avail_folds = [x for x in range(n_folds) if x != test_fold]
+        avail_folds = [x for x in all_fold_ids if x != test_fold]
         train_folds = avail_folds[:-1]
         valid_fold = avail_folds[-1]
         print('train folds: ', train_folds, ', valid fold(s): ', valid_fold, ', test fold(s): ', test_fold)
 
-        train_slices = [x for x in range(X.shape[0]) if fold_id[x] in train_folds]
-        valid_slices = [x for x in range(X.shape[0]) if fold_id[x] == valid_fold]
-        test_slices  = [x for x in range(X.shape[0]) if fold_id[x] == test_fold]
+        train_slices = [x for x in range(X.shape[0]) if folds[x] in train_folds]
+        valid_slices = [x for x in range(X.shape[0]) if folds[x] == valid_fold]
+        test_slices  = [x for x in range(X.shape[0]) if folds[x] == test_fold]
+
 
         # 
         # custom loss function
@@ -458,6 +384,7 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
         #
         model = ct.create_unet((X.shape[1], tile_size[0], tile_size[1]), n_classes, f_loss=loss)
         model.name = 'PID%d_oct_seg_fold%d' % (os.getpid(), test_fold)
+        print('train slices: ', train_slices) # TEMP
 
         # f_augment = partial(dt.random_minibatch, p_fliplr=.5, f_upstream=tian_shift_updown)
         # more rigorous data augmentation
@@ -498,8 +425,7 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 if __name__ == '__main__':
-    K.set_image_dim_ordering('th')
-    n_folds = 5
+    K.set_image_dim_ordering('th')  # TODO: change to tensorflow ordering!
     tile_size = (512,256)
 
     if len(sys.argv) > 1:
@@ -520,15 +446,13 @@ if __name__ == '__main__':
     if True:
         # load the raw data
         fn=os.path.expanduser('~/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat')
-        # fn=os.path.expanduser('./jbio201500239-sup-0003-Data-S1.mat')
         X, Y1, Y2, fold_id = tian_load_data(fn)
-    else:
-        # try out preprocessed data
-        X, Y1, Y2, fold_id = tian_load_wavelet_data('Tian_OCT_wavelet.mat')
 
         
-    # for now, we just use one set of annotations 
-    Y = Y1
+    # Choose ground truth
+    Y = Y1 
+    #Y = np.round((Y1 + Y2) / 2.0)  # mjp: UPDATED
+
     Y = tian_dense_labels(Y, X.shape[-2])
     X,Y = tian_preprocessing(X, Y, tile_size)
 
@@ -541,13 +465,14 @@ if __name__ == '__main__':
         print(' class %d fraction: %0.3f' % (yi, 1.*np.sum(Y==yi)/Y.size))
     print('pct missing:       %0.2f' % (100. * np.sum(Y < 0) / Y.size))
     print('X :', X.shape, np.min(X), np.max(X), X.dtype)
+    print('folds :', fold_id)
     print('')
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run experiment
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size,
-                             n_epochs=200,
+                             n_epochs=30,
                              layer_weights=layer_weights,
                              ace_tv_weights=ace_tv_weights,
                              out_dir=out_dir)
