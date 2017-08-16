@@ -80,8 +80,13 @@ def tian_load_wavelet_data(fn):
     Y2 = np.transpose(Y2, [0, 2, 1])
     
     # TODO: update if we learn anything about mapping of patients -> images
+    # UPDATE: be careful here - it seems the images are in the form:
+    #
+    #    fovea_1, perifovea1_1, perifovea2_1, parafoveal1_1, parafoveal2_1, fovea_2, ...
+    #
     n_folds = 5
-    fold_id = np.mod(np.arange(X.shape[0]), n_folds)
+    #fold_id = np.mod(np.arange(X.shape[0]), n_folds)
+    fold_id = np.floor(np.arange(X.shape[0]) / n_folds)
     
     return X, Y1, Y2, fold_id
 
