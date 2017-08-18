@@ -57,12 +57,11 @@ def tian_load_data(mat_file):
     Y1 = np.transpose(Y1, [2, 0, 1])
     Y2 = np.transpose(Y2, [2, 0, 1])
 
-    # assign slices to folds
-    # TODO: update if we learn anything about mapping of patients -> images
-    #
-    # UPDATE: changed fold ids based on how the images are laid out!
-    #
-    n_folds = 5
+    # Each patient has 5 images: one from fovea, 2 from para, and 2 from peri.
+    # These images appear to be ordered consecutively by patient 
+    # (note, however, the ordering of images within a given patient does not
+    #  always appear to be consistent).
+    n_folds = 10
     fold_id = np.floor(np.arange(X.shape[0]) / n_folds).astype(np.int32)
     
     return X, Y1, Y2, fold_id
