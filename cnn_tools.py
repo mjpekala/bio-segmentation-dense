@@ -420,13 +420,23 @@ def deploy_model(X, model, two_pass=False):
     return Y_hat
 
 
-def ensemble_models(X, Y, model, ensemble_model_weights, save_results=False, display_results=False):
+def ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr, save_results=False, display_results=False):
     Y_hat_raw_per_model = []
     for weights in ensemble_model_weights:
         model.load_weights(weights)
-        Y_hat_raw_per_model.append(
-            np.squeeze(np.asarray([deploy_model(X[[ii, ], ...], model, two_pass=True) for ii in range(X.shape[0])])))
+        Y_hat_raw = np.squeeze(np.asarray([deploy_model(X[[ii, ], ...], model, two_pass=True) for ii in range(X.shape[0])]))
+        # crop from fovea center to convert 9mm scan to 6mm scan (of which metrics are calculated off of in Tian paper)
+        Y_hat_raw = batch_horiz_crop_from_fovea_center(Y_hat_raw, new_width=644, crop_axis=3,
+                                                                 fovea_center_arr=fovea_center_arr)
+        Y_hat_raw_per_model.append(Y_hat_raw)
     Y_hat_raw_per_model = np.asarray(Y_hat_raw_per_model)
+
+    # do the same crop that was done above (needed to do this after network predictions, since other algos operate on 9mm)
+    X = batch_horiz_crop_from_fovea_center(X, new_width=644, crop_axis=3,
+                                           fovea_center_arr=fovea_center_arr)
+    Y = batch_horiz_crop_from_fovea_center(Y, new_width=644, crop_axis=2,
+                                           fovea_center_arr=fovea_center_arr)
+
 
     Y_hat_per_model = np.argmax(Y_hat_raw_per_model, axis=2)
 
@@ -525,10 +535,6 @@ def main():
     X = results['X'][results['test_slices']]
     Y = np.squeeze(results['Y'][results['test_slices']])
 
-    # crop from fovea center to convert 9mm scan to 6mm scan (of which metrics are calculated off of in Tian paper)
-    X = batch_horiz_crop_from_fovea_center(X, new_width=644, crop_axis=3, fovea_center_arr=fovea_center_arr[results['test_slices']])
-    Y = batch_horiz_crop_from_fovea_center(Y, new_width=644, crop_axis=2, fovea_center_arr=fovea_center_arr[results['test_slices']])
-
     # n_classes = len(np.unique(Y[Y >= 0].flatten()))
     n_classes = 7
     ace_w = partial(pixelwise_ace_loss, w=np.array(layer_weights))
@@ -538,7 +544,7 @@ def main():
 
     model = create_unet((X.shape[1], tile_size[0], tile_size[1]), n_classes, f_loss=loss)
 
-    ensemble_models(X, Y, model, ensemble_model_weights, save_results=False, display_results=True)
+    ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr[results['test_slices']], save_results=False, display_results=True)
 
 if __name__ == '__main__':
     main()
