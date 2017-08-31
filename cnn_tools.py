@@ -50,8 +50,6 @@ import theano
 import tensorflow as tf
 
 
-
-
 def print_generator(c, every_n_secs=60*2):
     """ Generator over a collection c that provides progress information (to stdout)
     """
@@ -66,7 +64,6 @@ def print_generator(c, every_n_secs=60*2):
             last_chatter = elapsed
             print('processed %d items in %0.2f minutes' % (idx+1, elapsed/60.))
 
-                             
 
 def f1_score(y_true, y_hat):
     """ 
@@ -93,8 +90,6 @@ def f1_score(y_true, y_hat):
 
     # adding epsilon to the denominator here for the all-wrong corner case
     return 2 * precision * recall / (precision + recall + 1e-12) 
-
-
 
 
 def pixelwise_ace_loss(y_true, y_hat, w=None):
@@ -137,7 +132,6 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     return K.sum(-loss) / K.sum(is_pixel_labeled)
 
 
-
 def total_variation_loss(y_true, y_hat):
     """
     adapted from: keras/examples/neural_style_transfer.py
@@ -159,7 +153,6 @@ def total_variation_loss(y_true, y_hat):
     zero = K.sum(0 * K.flatten(y_true))
 
     return K.sum(K.pow(a + b, 1.25)) + zero
-
 
 
 def monotonic_in_row_loss(y_true, y_hat):
@@ -212,8 +205,6 @@ def l1_smooth_loss(y_true, y_pred):
 def make_composite_loss(y_true, y_hat, loss_a, loss_b, w_a, w_b):
     """ Constructs a linear combination of two loss functions."""
     return loss_a(y_true, y_hat) * w_a + loss_b(y_true, y_hat) * w_b
-
-
 
 
 def create_unet(sz, n_classes=2, multi_label=False, f_loss=pixelwise_ace_loss):
@@ -307,7 +298,6 @@ def create_unet(sz, n_classes=2, multi_label=False, f_loss=pixelwise_ace_loss):
     return model
 
 
-
 def train_model(X_train, Y_train, X_valid, Y_valid, model,
                 n_epochs=30, n_mb_per_epoch=25, mb_size=30, f_augment=random_minibatch, out_dir='.'):
     """
@@ -386,7 +376,6 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     return score_all
 
 
-
 def deploy_model(X, model, two_pass=False):
     """ Runs a deep network on an unlabeled test data
 
@@ -430,6 +419,7 @@ def deploy_model(X, model, two_pass=False):
         
     return Y_hat
 
+
 def ensemble_models(X, Y, model, ensemble_model_weights, save_results=False, display_results=False):
     Y_hat_raw_per_model = []
     for weights in ensemble_model_weights:
@@ -455,6 +445,11 @@ def ensemble_models(X, Y, model, ensemble_model_weights, save_results=False, dis
         import matplotlib.pyplot as plt
 
         for example_i in range(len(Y_hat_ensemble_mean)):
+            plt.figure()
+            plt.title('X (Example %d)' % example_i)
+            plt.imshow(X[example_i, 0].astype(np.uint8))
+            plt.colorbar()
+
             for model_i in range(len(Y_hat_per_model)):
                 plt.figure()
                 plt.title('Y_hat_ensemble_%d (Example %d)' % (model_i, example_i))
@@ -482,6 +477,27 @@ def ensemble_models(X, Y, model, ensemble_model_weights, save_results=False, dis
     return Y_hat_raw_per_model
 
 
+def batch_horiz_crop_from_fovea_center(X, new_width, crop_axis, fovea_center_arr):
+    assert new_width % 2 == 0, "ERROR: new_width must be and even number"
+    # have to swap axes to ensure the crop axis is in a known position (index 1)
+    if crop_axis != 1:
+        X_swap = np.swapaxes(X.copy(), 1, crop_axis)
+    new_X_shape = list(X_swap.shape)
+    new_X_shape[1] = new_width
+    new_X = np.zeros(tuple(new_X_shape), dtype=X.dtype)
+    for i in range(len(X)):
+        center = fovea_center_arr[i]
+        try:
+            new_X[i] = X_swap[i, center - new_width/2:center + new_width/2]
+        except IndexError:
+            print("ERROR: Image width not big enough to accommodate new_width.")
+            exit(-1)
+    # undo swap axes
+    if crop_axis != 1:
+        new_X = np.swapaxes(new_X, 1, crop_axis)
+    return new_X
+
+
 def main():
     # Testing ensemble_models()...
     K.set_image_dim_ordering('th')
@@ -503,10 +519,18 @@ def main():
         "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/NO_CHANGES_2/oct_seg_fold0_weights_epoch0188.hdf5",
     ]
 
+    fovea_center_arr = np.asarray([382] * 5 + [370] * 5 + [394] * 5 + [370] * 5 + [376] * 5 + [372] * 5 + [372] * 5 + [442] * 5 + [390] * 5 + [366] * 5, dtype=int)
+
     results = np.load("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_0/oct_seg_fold0_deploy_final.npz")
     X = results['X'][results['test_slices']]
     Y = np.squeeze(results['Y'][results['test_slices']])
-    n_classes = len(np.unique(Y[Y >= 0].flatten()))
+
+    # crop from fovea center to convert 9mm scan to 6mm scan (of which metrics are calculated off of in Tian paper)
+    X = batch_horiz_crop_from_fovea_center(X, new_width=644, crop_axis=3, fovea_center_arr=fovea_center_arr[results['test_slices']])
+    Y = batch_horiz_crop_from_fovea_center(Y, new_width=644, crop_axis=2, fovea_center_arr=fovea_center_arr[results['test_slices']])
+
+    # n_classes = len(np.unique(Y[Y >= 0].flatten()))
+    n_classes = 7
     ace_w = partial(pixelwise_ace_loss, w=np.array(layer_weights))
     loss = partial(make_composite_loss,
                    loss_a=ace_w, w_a=ace_tv_weights[0],
