@@ -115,7 +115,8 @@ def estimate_boundary(Y_hat, class_label, f_regress, interp_only=True):
     # If these images had some spatial correlation, we could do a 2d regression...
     for z in range(Y_hat.shape[0]):
         Yz = Y_hat[z,...]
-        rows, cols = get_class_transitions(Yz, class_label)
+        M = get_class_transitions(Yz, class_label)
+        rows = M[:,0];  cols = M[:,1]
 
         x_obs, y_obs = cols, rows
         if not interp_only:
