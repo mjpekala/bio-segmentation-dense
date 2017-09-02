@@ -12,7 +12,7 @@ __author__ = "mjp"
 __date__ = 'july 2017'
 
 
-import time
+import sys, time
 from itertools import product
 import pdb, unittest
 
@@ -84,11 +84,11 @@ def boundary_regression_1d(x_obs, y_obs, x_eval, kernel=None):
 
 
 
-def estimate_boundary(Y_hat, class_label, f_regress, interp_only=True):
+def estimate_boundary(Y_hat, class_label, f_regress, interp_only=True, reject_lb=None):
     """Converts dense (per-pixel) estimates into boundary estimates.
  
-    This function basically just automates the process of applying a
-    regression procedure to one or more images.
+    This function the process of applying a regression procedure to one or more images.
+    It also implements a few engineering heuristics to improve the quality of the results.
 
         Y_hat       : (Z x R x C) matrix of Z images, each of which is (R x C).
         class_label : the (scalar) class label whose "lower" boundary we are interested in.
@@ -116,9 +116,19 @@ def estimate_boundary(Y_hat, class_label, f_regress, interp_only=True):
     for z in range(Y_hat.shape[0]):
         Yz = Y_hat[z,...]
         M = get_class_transitions(Yz, class_label)
-        rows = M[:,0];  cols = M[:,1]
 
-        x_obs, y_obs = cols, rows
+        #----------------------------------------
+        # optional: outlier rejection
+        #----------------------------------------
+        if reject_lb is not None:
+            minimum_row_value = reject_lb[z, M[:,1]]
+            invalid = np.nonzero(M[:,0] < minimum_row_value)[0]
+            M = np.delete(M, invalid, axis=0)
+
+        #----------------------------------------
+        # regression
+        #----------------------------------------
+        x_obs, y_obs = M[:,1], M[:,0]
         if not interp_only:
             # estimate over the entire support of the image
             x_eval = np.arange(Yz.shape[1]) 
@@ -243,15 +253,18 @@ class TestPostprocMethods(unittest.TestCase):
         Y[1,:] = 1
         Y[2:4,:] = 2
 
-        rows, cols = get_class_transitions(Y,0)
+        M = get_class_transitions(Y,0)
+        rows = M[:,0]; cols = M[:,1]
         self.assertTrue(len(rows) == 10)
         self.assertTrue(np.all(rows == 0))
         
-        rows, cols = get_class_transitions(Y,1)
+        M = get_class_transitions(Y,1)
+        rows = M[:,0]; cols = M[:,1]
         self.assertTrue(len(rows) == 10)
         self.assertTrue(np.all(rows == 1))
         
-        rows, cols = get_class_transitions(Y,2)
+        M = get_class_transitions(Y,2)
+        rows = M[:,0]; cols = M[:,1]
         self.assertTrue(len(rows) == 0)
 
 
@@ -275,4 +288,14 @@ class TestPostprocMethods(unittest.TestCase):
 
     
 if __name__ == "__main__":
-    unittest.main()
+    if len(sys.argv) > 1:
+        # demos how to run codes on ensemble estimates
+        f = np.load(sys.argv[1])
+        Y_hat = f['Y_hat_ensemble_mean']
+        test_indices = np.arange(0, 50, step=5)
+        b_0 = estimate_boundary(Y_hat, 0, boundary_regression_1d, interp_only=False)
+        for b_id in range(1,5):
+            b_est = estimate_boundary(Y_hat, b_id, boundary_regression_1d, interp_only=False, reject_lb=b_0)
+    else:
+        # run unit tests
+        unittest.main()
