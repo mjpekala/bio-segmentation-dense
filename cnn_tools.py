@@ -299,7 +299,7 @@ def create_unet(sz, n_classes=2, multi_label=False, f_loss=pixelwise_ace_loss):
 
 
 def train_model(X_train, Y_train, X_valid, Y_valid, model,
-                n_epochs=30, n_mb_per_epoch=25, mb_size=30, f_augment=random_minibatch, out_dir='.'):
+                n_epochs=30, n_mb_per_epoch=25, mb_size=30, f_augment=random_minibatch, out_dir='.', remove_previous_epoch_saves=False):
     """
     Note: these are not epochs in the usual sense, since we randomly sample
     the data set (vs methodically marching through it)                
@@ -311,6 +311,8 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     n_missing_valid = np.sum(np.all(Y_valid < 0, axis=1))
     score_all = []
     acc_best = -1
+    prev_fn_out = None
+    prev_fn = None
 
     # show some info about the training data
     print('[train_model]: X_train is ', X_train.shape, X_train.dtype, np.min(X_train), np.max(X_train))
@@ -335,7 +337,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         # evaluate performance on validation data
         Y_valid_hat_oh = deploy_model(X_valid, model)  # oh = one-hot
 
-        Y_valid_hat = np.argmax(Y_valid_hat_oh, axis=1);
+        Y_valid_hat = np.argmax(Y_valid_hat_oh, axis=1)
         Y_valid_hat = Y_valid_hat[:,np.newaxis,...]
         acc = 100. * np.sum(Y_valid_hat == Y_valid) / Y_valid.size
         net_prob = np.sum(Y_valid_hat_oh, axis=1)  # This should be very close to 1 everywhere
@@ -367,10 +369,17 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         if (acc > acc_best) or (e_idx == n_epochs-1):
             fn_out = '%s_weights_epoch%04d.hdf5' % (model.name, e_idx)
             model.save_weights(os.path.join(out_dir, fn_out))
+            if remove_previous_epoch_saves and prev_fn_out is not None:
+                os.remove(prev_fn_out)
+            prev_fn_out = os.path.join(out_dir, fn_out)
 
-            fn = '%s_valid_epoch%04d' % (model.name, e_idx)
+            fn = '%s_valid_epoch%04d.npz' % (model.name, e_idx)
             fn = os.path.join(out_dir, fn)
             np.savez(fn, X=X_valid, Y=Y_valid, Y_hat=Y_valid_hat_oh, s=score_all)
+            if remove_previous_epoch_saves and prev_fn is not None:
+                os.remove(prev_fn)
+            prev_fn = fn
+            print("[train_model]: accuracy improved from %f to %f" % (acc_best, acc))
             acc_best = acc
 
     return score_all
@@ -420,22 +429,25 @@ def deploy_model(X, model, two_pass=False):
     return Y_hat
 
 
-def ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr, save_results=False, display_results=False):
+def ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr, save_results=False, display_results=False, do_crop=False):
     Y_hat_raw_per_model = []
     for weights in ensemble_model_weights:
         model.load_weights(weights)
         Y_hat_raw = np.squeeze(np.asarray([deploy_model(X[[ii, ], ...], model, two_pass=True) for ii in range(X.shape[0])]))
-        # crop from fovea center to convert 9mm scan to 6mm scan (of which metrics are calculated off of in Tian paper)
-        Y_hat_raw = batch_horiz_crop_from_fovea_center(Y_hat_raw, new_width=644, crop_axis=3,
-                                                                 fovea_center_arr=fovea_center_arr)
+
+        if do_crop:
+            # crop from fovea center to convert 9mm scan to 6mm scan (of which metrics are calculated off of in Tian paper)
+            Y_hat_raw = batch_horiz_crop_from_fovea_center(Y_hat_raw, new_width=644, crop_axis=3,
+                                                                     fovea_center_arr=fovea_center_arr)
         Y_hat_raw_per_model.append(Y_hat_raw)
     Y_hat_raw_per_model = np.asarray(Y_hat_raw_per_model)
 
-    # do the same crop that was done above (needed to do this after network predictions, since other algos operate on 9mm)
-    X = batch_horiz_crop_from_fovea_center(X, new_width=644, crop_axis=3,
-                                           fovea_center_arr=fovea_center_arr)
-    Y = batch_horiz_crop_from_fovea_center(Y, new_width=644, crop_axis=2,
-                                           fovea_center_arr=fovea_center_arr)
+    if do_crop:
+        # do the same crop that was done above (needed to do this after network predictions, since other algos operate on 9mm)
+        X = batch_horiz_crop_from_fovea_center(X, new_width=644, crop_axis=3,
+                                               fovea_center_arr=fovea_center_arr)
+        Y = batch_horiz_crop_from_fovea_center(Y, new_width=644, crop_axis=2,
+                                               fovea_center_arr=fovea_center_arr)
 
 
     Y_hat_per_model = np.argmax(Y_hat_raw_per_model, axis=2)
@@ -488,7 +500,7 @@ def ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr, save_
 
 
 def batch_horiz_crop_from_fovea_center(X, new_width, crop_axis, fovea_center_arr):
-    assert new_width % 2 == 0, "ERROR: new_width must be and even number"
+    assert new_width % 2 == 0, "ERROR: new_width must be an even number"
     # have to swap axes to ensure the crop axis is in a known position (index 1)
     if crop_axis != 1:
         X_swap = np.swapaxes(X.copy(), 1, crop_axis)
@@ -544,7 +556,7 @@ def main():
 
     model = create_unet((X.shape[1], tile_size[0], tile_size[1]), n_classes, f_loss=loss)
 
-    ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr[results['test_slices']], save_results=False, display_results=True)
+    ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr[results['test_slices']], save_results=False, display_results=True, do_crop=False)
 
 if __name__ == '__main__':
     main()

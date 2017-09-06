@@ -331,7 +331,7 @@ class Tee(object):
 
        
  
-def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=30,
+def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
                              layer_weights = [1, 10, 10, 10, 10, 1],
                              ace_tv_weights = [20, .01],
                              out_dir='./Ex_ACE_and_TV'):
@@ -351,7 +351,7 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=30,
     sys.stdout = Tee(os.path.join(out_dir, 'PID%d_logfile.txt' % os.getpid()))
     
     for test_fold in all_fold_ids:
-        if test_fold > 0: break # TEMP only run one fold for now while testing
+        # if test_fold > 0: break # TEMP only run one fold for now while testing
             
         #
         # determine train/valid split for this fold
@@ -394,7 +394,8 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=30,
                        X[valid_slices,...], Y[valid_slices,...],
                        model, n_epochs=n_epochs, mb_size=2, n_mb_per_epoch=25,
                        f_augment=f_augment,
-                       out_dir=out_dir)
+                       out_dir=out_dir,
+                       remove_previous_epoch_saves=True)
 
         print('[info]: time to train model: %0.2f min' % ((time.time() - tic)/60.))
 
@@ -444,12 +445,15 @@ if __name__ == '__main__':
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if True:
         # load the raw data
-        fn=os.path.expanduser('~/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat')
+        # fn=os.path.expanduser('~/Data/Tian_OCT/jbio201500239-sup-0003-Data-S1.mat')
+        fn=os.path.expanduser('/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/jbio201500239-sup-0003-Data-S1.mat')
         X, Y1, Y2, fold_id = tian_load_data(fn)
 
-        
+    # fold_id = np.asarray([[i]*10 for i in range(5)]).flatten()    # 5 fold
+    fold_id = np.asarray([[i]*5 for i in range(10)]).flatten()      # 10 fold
+
     # Choose ground truth
-    Y = Y1 
+    Y = Y1
     #Y = np.round((Y1 + Y2) / 2.0)  # mjp: UPDATED
 
     Y = tian_dense_labels(Y, X.shape[-2])
@@ -471,7 +475,7 @@ if __name__ == '__main__':
     # Run experiment
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size,
-                             n_epochs=30,
+                             n_epochs=500,
                              layer_weights=layer_weights,
                              ace_tv_weights=ace_tv_weights,
                              out_dir=out_dir)
