@@ -356,7 +356,8 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
     
     for test_fold in all_fold_ids:
         if test_fold in skip_folds:
-            break
+            print("Skipping fold %d..." % test_fold)
+            continue
 
         #
         # determine train/valid split for this fold
@@ -480,7 +481,7 @@ if __name__ == '__main__':
     # Run experiment
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size,
-                             n_epochs=5,
+                             n_epochs=500,
                              layer_weights=layer_weights,
                              ace_tv_weights=ace_tv_weights,
                              out_dir=out_dir)
