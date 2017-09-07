@@ -21,7 +21,7 @@ __license__ = 'Apache 2.0'
 
 
 import os, sys, time
-# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 from functools import partial
 import h5py
 
@@ -345,14 +345,19 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
     print('ACE / TV weights: %s' % str(ace_tv_weights))
     
     n_classes = len(np.unique(Y[Y>=0].flatten()))
-    all_fold_ids = np.unique(folds).astype(np.int32)
+    all_fold_ids = np.unique(folds).astype(int)
     n_folds = len(all_fold_ids)
+
+    # list of folds to skip (useful for re-running only the folds that failed)
+    # skip_folds = all_fold_ids[1:].tolist()        # only do first fold
+    skip_folds = []     # empty list, skip no folds
 
     sys.stdout = Tee(os.path.join(out_dir, 'PID%d_logfile.txt' % os.getpid()))
     
     for test_fold in all_fold_ids:
-        # if test_fold > 0: break # TEMP only run one fold for now while testing
-            
+        if test_fold in skip_folds:
+            break
+
         #
         # determine train/valid split for this fold
         #
@@ -475,7 +480,7 @@ if __name__ == '__main__':
     # Run experiment
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ex_smoothness_constraint(X, Y, fold_id, tile_size=tile_size,
-                             n_epochs=500,
+                             n_epochs=5,
                              layer_weights=layer_weights,
                              ace_tv_weights=ace_tv_weights,
                              out_dir=out_dir)

@@ -366,7 +366,7 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         
 
         # save state when appropriate
-        if (acc > acc_best) or (e_idx == n_epochs-1):
+        if (acc > acc_best) or (remove_previous_epoch_saves is False and (e_idx == n_epochs-1)):
             fn_out = '%s_weights_epoch%04d.hdf5' % (model.name, e_idx)
             model.save_weights(os.path.join(out_dir, fn_out))
             if remove_previous_epoch_saves and prev_fn_out is not None:
