@@ -24,28 +24,34 @@ import GPy
 
 
 
-def get_class_transitions(Y_hat, y_above):
+def get_class_transitions(Y_hat, y_above, dedup=False):
     """Returns pixel locations where class transitions occur.
 
         Y_hat    : (R x C) tensor of dense (ie. per-pixel) class estimates.
         y_above  : the class label immediately above the boundary of interest
-
+                   (so we look for transitions from y_above -> y_above+1)
     """
     assert(Y_hat.ndim == 2)
 
     Yi = (Y_hat == y_above)
     Yii = (Y_hat == (y_above+1))
 
-    # NOTE: there is potential off-by-one issue here, depending upon
-    # how the boundary pixels are defined.  May need to add 1 to rows
-    # depending upon this definition.
+    # find transition points
     transitions = np.logical_and(Yi[:-1,:], Yii[1:,:])
     rows, cols = np.nonzero(transitions)
 
+    # sort by x value (if not already)
     idx = np.argsort(cols)
-    #return rows, cols
-    return np.c_[rows[idx], cols[idx]]  # return as a two-column matrix
+    rows, cols = rows[idx], cols[idx]
 
+    # remove duplicate points (optional, not recommended usually)
+    if dedup:
+        _, idx = np.unique(cols, return_index=True)
+        rows, cols = rows[idx], cols[idx]
+
+    return rows, cols
+
+    
 
 
 def boundary_regression_1d(x_obs, y_obs, x_eval, kernel=None):
@@ -115,20 +121,19 @@ def estimate_boundary(Y_hat, class_label, f_regress, interp_only=True, reject_lb
     # If these images had some spatial correlation, we could do a 2d regression...
     for z in range(Y_hat.shape[0]):
         Yz = Y_hat[z,...]
-        M = get_class_transitions(Yz, class_label)
+        y_obs, x_obs = get_class_transitions(Yz, class_label)
 
         #----------------------------------------
         # optional: outlier rejection
         #----------------------------------------
         if reject_lb is not None:
-            minimum_row_value = reject_lb[z, M[:,1]]
-            invalid = np.nonzero(M[:,0] < minimum_row_value)[0]
-            M = np.delete(M, invalid, axis=0)
+            minimum_row_value = reject_lb[z, x_obs]  # lower bound for each x-value
+            invalid = np.nonzero(y_obs < minimum_row_value)[0]
+            x_obs, y_obs = x_obs[~invalid], y_obs[~invalid]
 
         #----------------------------------------
         # regression
         #----------------------------------------
-        x_obs, y_obs = M[:,1], M[:,0]
         if not interp_only:
             # estimate over the entire support of the image
             x_eval = np.arange(Yz.shape[1]) 
@@ -253,18 +258,15 @@ class TestPostprocMethods(unittest.TestCase):
         Y[1,:] = 1
         Y[2:4,:] = 2
 
-        M = get_class_transitions(Y,0)
-        rows = M[:,0]; cols = M[:,1]
+        rows, cols = get_class_transitions(Y,0)
         self.assertTrue(len(rows) == 10)
         self.assertTrue(np.all(rows == 0))
         
-        M = get_class_transitions(Y,1)
-        rows = M[:,0]; cols = M[:,1]
+        rows, cols = get_class_transitions(Y,1)
         self.assertTrue(len(rows) == 10)
         self.assertTrue(np.all(rows == 1))
         
-        M = get_class_transitions(Y,2)
-        rows = M[:,0]; cols = M[:,1]
+        rows, cols = get_class_transitions(Y,2)
         self.assertTrue(len(rows) == 0)
 
 
