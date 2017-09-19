@@ -79,7 +79,7 @@ def boundary_regression_1d(x_obs, y_obs, x_eval, kernel=None):
         # some default hyper-parameters.  In practice, these should be
         # determined properly (e.g. maximum likelihood or
         # cross-validation)
-        kernel = GPy.kern.RBF(input_dim=1, variance=50., lengthscale=80.)
+        kernel = GPy.kern.RBF(input_dim=1, variance=50., lengthscale=50.)
         
     # fit the Gaussian process and evaluate at desired points
     m = GPy.models.GPRegression(x_obs, y_obs, kernel)
