@@ -51,7 +51,32 @@ def get_class_transitions(Y_hat, y_above, dedup=False):
 
     return rows, cols
 
+
+
+def deduplicate_nn(x, y, x_ref, y_ref):
+    """ De-duplicates points in x by a nearest neighbor calculation.
+
+       x, y         : points to de-duplicate in x dimension (we have in mind surface 0)
+       x_ref, y_ref : points that should be closest to dedup(x, y)
+
+    """
+
+    keep_me = np.ones(x.size, dtype=np.bool)
     
+    for xv in np.unique(x):
+        idx = np.nonzero(x.flatten() == xv)[0]
+        if idx.size == 1:
+            continue  # only one point - nothing to do
+
+        # find the point closest to the reference data
+        min_dist = np.zeros((idx.size,))
+        for jj, yj in enumerate(y[idx]):
+            min_dist[jj] = np.min(np.sum((xv - x_ref)**2 + (yj - y_ref)**2))
+        keep_me[idx] = False
+        keep_me[idx[np.argmin(min_dist)]] = True
+
+    return x[keep_me], y[keep_me]
+  
 
 
 def boundary_regression_1d(x_obs, y_obs, x_eval, kernel=None):
@@ -278,16 +303,28 @@ class TestPostprocMethods(unittest.TestCase):
         Y_hat[2:4,:] = 2
 
         boundary_1 = estimate_boundary(Y_hat, 1, boundary_regression_1d)[0]
-        assert(boundary_1.size == n)
-        assert(np.all(boundary_1 == 1))
+        self.assertTrue(boundary_1.size == n)
+        self.assertTrue(np.all(boundary_1 == 1))
 
         # test interpolation-only mode
         Y_hat[:,0] = 100
         boundary_1 = estimate_boundary(Y_hat, 1, boundary_regression_1d, interp_only=True)[0]
-        assert(boundary_1.size == n)
-        assert(np.all(boundary_1[1:] == 1))
-        assert(np.isnan(boundary_1[0]))
+        self.assertTrue(boundary_1.size == n)
+        self.assertTrue(np.all(boundary_1[1:] == 1))
+        self.assertTrue(np.isnan(boundary_1[0]))
 
+        
+    def test_dedup(self):
+        x = np.array([1, 2, 3, 3, 4, 1]);
+        y = np.array([10, 10, 10, 100, 10, 50])
+        x_ref = np.arange(10);
+        y_ref = 20 * np.ones(x_ref.size)
+
+        x_hat, y_hat = deduplicate_nn(x, y, x_ref, y_ref)
+        self.assertTrue(x_hat.size == 4)
+        self.assertTrue(np.max(y_hat) == 10)
+        
+    
     
 if __name__ == "__main__":
     if len(sys.argv) > 1:
