@@ -39,6 +39,7 @@ def get_class_transitions(Y_hat, y_above, dedup=False):
     # find transition points
     transitions = np.logical_and(Yi[:-1,:], Yii[1:,:])
     rows, cols = np.nonzero(transitions)
+    rows = rows + 1  # NOTE: this one pixel offset depends on the semantics of the "surface pixel"
 
     # sort by x value (if not already)
     idx = np.argsort(cols)
