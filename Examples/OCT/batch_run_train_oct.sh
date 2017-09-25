@@ -1,0 +1,9 @@
+python train_oct.py Default/DenseNetsFCN_test1 1 20
+python train_oct.py Default/DenseNetsFCN_test2 2 20
+python train_oct.py Default/DenseNetsFCN_test3 3 20
+python train_oct.py Default/DenseNetsFCN_test4 4 20
+python train_oct.py Default/DenseNetsFCN_test5 5 20
+python train_oct.py Default/DenseNetsFCN_test6 6 20
+python train_oct.py Default/DenseNetsFCN_test7 7 20
+python train_oct.py Default/DenseNetsFCN_test8 8 20
+python train_oct.py Default/DenseNetsFCN_test9 9 20

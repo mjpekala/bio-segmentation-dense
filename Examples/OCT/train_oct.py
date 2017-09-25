@@ -375,19 +375,27 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
         # 
         # custom loss function
         #
-        ace_w = partial(ct.pixelwise_ace_loss, w=np.array(layer_weights))
+        # ace_w = partial(ct.pixelwise_ace_loss, w=np.array(layer_weights))
+        # loss = partial(ct.make_composite_loss,
+        #                    loss_a=ace_w, w_a=ace_tv_weights[0],
+        #                    loss_b=ct.total_variation_loss, w_b=ace_tv_weights[1])
+        #                    # loss_b=ct.l1_smooth_loss, w_b=ace_tv_weights[1])
+        #                    # loss_b=ct.monotonic_in_row_loss, w_b=0.9)
+        ace_w = partial(ct.pixelwise_ace_loss_channels_last, w=np.array(layer_weights))
         loss = partial(ct.make_composite_loss,
-                           loss_a=ace_w, w_a=ace_tv_weights[0],
-                           loss_b=ct.total_variation_loss, w_b=ace_tv_weights[1])
-                           # loss_b=ct.l1_smooth_loss, w_b=ace_tv_weights[1])
-                           # loss_b=ct.monotonic_in_row_loss, w_b=0.9)
+                       loss_a=ace_w, w_a=ace_tv_weights[0],
+                       loss_b=ct.total_variation_loss_channels_last, w_b=ace_tv_weights[1])
+        # loss_b=ct.l1_smooth_loss, w_b=ace_tv_weights[1])
+        # loss_b=ct.monotonic_in_row_loss, w_b=0.9)
         loss.__name__ = 'custom loss function'  # Keras checks this for something
 
         #
         # create & train model
         # Note: I reduced the mini-batch size since the tiles are larger now.
         #
-        model = ct.create_unet((X.shape[1], tile_size[0], tile_size[1]), n_classes, f_loss=loss)
+        # model = ct.create_unet((X.shape[1], tile_size[0], tile_size[1]), n_classes, f_loss=loss)
+        # model = ct.create_DenseNetFCN((tile_size[0], tile_size[1], X.shape[1]), n_classes, f_loss=loss)
+        model = ct.create_DenseNetFCN((tile_size[0], tile_size[1], X.shape[1]), n_classes, f_loss=ct.weighted_pixelwise_crossentropy(layer_weights))
         model.name = 'PID%d_oct_seg_fold%d' % (os.getpid(), test_fold)
         print('train slices: ', train_slices) # TEMP
 
@@ -431,7 +439,8 @@ def ex_smoothness_constraint(X, Y, folds, tile_size, n_epochs=200,
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 if __name__ == '__main__':
-    K.set_image_dim_ordering('th')  # TODO: change to tensorflow ordering!
+    # K.set_image_dim_ordering('th')  # TODO: change to tensorflow ordering!
+    # K.set_image_data_format("channels_first")
     tile_size = (512,256)
 
     if len(sys.argv) > 1:
@@ -439,7 +448,7 @@ if __name__ == '__main__':
         w1 = float(sys.argv[2])
         w2 = float(sys.argv[3])
         
-        layer_weights = [1, w1, w1, w1, w1, 1, 0]
+        layer_weights = [w1, 10, 10, 10, 10, w1, 0]
         ace_tv_weights = [w2, 1]
     else:
         out_dir = 'Ex_Default'

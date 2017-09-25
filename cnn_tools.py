@@ -34,14 +34,16 @@ __license__ = 'Apache 2.0'
 import time
 
 import os
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import numpy as np
 
 from keras.models import Model
 from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, Dropout, Lambda
 from keras.layers.merge import Concatenate
-from keras.optimizers import Adam
+from keras.optimizers import Adam, Nadam
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras import backend as K
+from Examples.OCT.densenet import DenseNetFCN
 
 from data_tools import *
 
@@ -49,6 +51,7 @@ import sklearn.metrics as skm
 import theano
 import tensorflow as tf
 
+FOLD = 9
 
 def print_generator(c, every_n_secs=60*2):
     """ Generator over a collection c that provides progress information (to stdout)
@@ -132,6 +135,46 @@ def pixelwise_ace_loss(y_true, y_hat, w=None):
     return K.sum(-loss) / K.sum(is_pixel_labeled)
 
 
+def pixelwise_ace_loss_channels_last(y_true, y_hat, w=None):
+    """ Pixel-wise average crossentropy loss (ACE).
+    This should work for both binomial and multinomial cases.
+
+        y_true :  True class labels in one-hot encoding; shape is:
+                     (#_examples, #_classes, #_rows, #_cols)
+
+        y_hat  :  Estimated class labels; same shape as y_true
+
+        w      :  Either None, or a vector with dimension #_classes
+    """
+
+    # In some cases, there may be no label associated with a pixel.
+    # This is encoded as a "zero-hot" vector in y_true.
+    #
+    is_pixel_labeled = K.sum(y_true, axis=3)  # for one-hot or zero-hot, this should be 0 or 1
+    is_pixel_labeled = K.clip(is_pixel_labeled, 0, 1)  # for multi-label case
+
+    # Normally y_hat is coming from a sigmoid (or other "squashing")
+    # and therefore never reaches exactly 0 or 1 (so the call to log
+    # below is safe).  However, out of paranoia, we call clip() here.
+    y_hat = K.clip(y_hat, 1e-9, 1 - 1e-9)
+
+    # the categorical crossentropy loss
+    #
+    # ** NOTE **
+    #  This calculation assumes one-hot encoding and sum-to-one along class dimension.
+    #  There is no loss associated with places where y_true is 0, so y_hat could be
+    #  all 1s and incurr no loss.
+    #
+    if w is not None:
+        w_onehot = w[np.newaxis, np.newaxis, np.newaxis, :]  # enable broadcast
+        loss = K.sum(y_true * w_onehot * K.log(y_hat), axis=3)
+    else:
+        loss = K.sum(y_true * K.log(y_hat), axis=3)
+
+    # return K.mean(-loss)
+    return K.sum(-loss) / K.sum(is_pixel_labeled)
+
+
 def total_variation_loss(y_true, y_hat):
     """
     adapted from: keras/examples/neural_style_transfer.py
@@ -148,6 +191,29 @@ def total_variation_loss(y_true, y_hat):
     a = K.square(y_hat[:, :, :(n_rows-1), :(n_cols-1)] - y_hat[:, :, 1:, :(n_cols-1)])
     b = K.square(y_hat[:, :, :(n_rows-1), :(n_cols-1)] - y_hat[:, :, :(n_rows-1), 1:])
     
+    # a no-op involving y_true so that Theano doesn't complain about
+    # unused nodes in the computational graph.
+    zero = K.sum(0 * K.flatten(y_true))
+
+    return K.sum(K.pow(a + b, 1.25)) + zero
+
+
+def total_variation_loss_channels_last(y_true, y_hat):
+    """
+    adapted from: keras/examples/neural_style_transfer.py
+    """
+    assert K.ndim(y_hat) == 4
+    n_rows = y_hat.shape[-3]
+    n_cols = y_hat.shape[-2]
+
+    # differences along rows and columns
+    # note: I assume channels first.
+    #
+    # note: even though these encodings are one-hot, this calculation should
+    #       still be reasonable (perhaps up to a scaling factor)
+    a = K.square(y_hat[:, :(n_rows - 1), :(n_cols - 1), :] - y_hat[:, 1:, :(n_cols - 1), :])
+    b = K.square(y_hat[:, :(n_rows - 1), :(n_cols - 1), :] - y_hat[:, :(n_rows - 1), 1:, :])
+
     # a no-op involving y_true so that Theano doesn't complain about
     # unused nodes in the computational graph.
     zero = K.sum(0 * K.flatten(y_true))
@@ -205,6 +271,16 @@ def l1_smooth_loss(y_true, y_pred):
 def make_composite_loss(y_true, y_hat, loss_a, loss_b, w_a, w_b):
     """ Constructs a linear combination of two loss functions."""
     return loss_a(y_true, y_hat) * w_a + loss_b(y_true, y_hat) * w_b
+
+
+def weighted_pixelwise_crossentropy(class_weights):
+
+    def loss(y_true, y_pred):
+        epsilon = K.epsilon()
+        y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
+        return - tf.reduce_sum(tf.multiply(y_true * tf.log(y_pred), class_weights))
+
+    return loss
 
 
 def create_unet(sz, n_classes=2, multi_label=False, f_loss=pixelwise_ace_loss):
@@ -298,6 +374,29 @@ def create_unet(sz, n_classes=2, multi_label=False, f_loss=pixelwise_ace_loss):
     return model
 
 
+def create_DenseNetFCN(sz, n_classes=2, f_loss=pixelwise_ace_loss):
+    """
+      sz : a tuple specifying the input image size in the form:
+           (# channels, # rows, # columns)
+
+      References:
+        1. Ronneberger et al. "U-Net: Convolutional Networks for Biomedical
+           Image Segmentation." 2015.
+        2. https://github.com/jocicmarko/ultrasound-nerve-segmentation/blob/master/train.py
+    """
+
+    assert (len(sz) == 3)
+
+    model = DenseNetFCN(input_shape=sz, dropout_rate=0.2, classes=n_classes, activation='custom_softmax')
+
+    # mjp: my f1_score is only for binary case; use acc for now
+    # model.compile(optimizer=Adam(lr=1e-3), loss=pixelwise_ace_loss, metrics=[f1_score])
+    model.compile(optimizer=Adam(lr=1e-3), loss=f_loss, metrics=['acc'])
+
+    model.name = 'DenseNetFCN'
+    return model
+
+
 def train_model(X_train, Y_train, X_valid, Y_valid, model,
                 n_epochs=30, n_mb_per_epoch=25, mb_size=30, f_augment=random_minibatch, out_dir='.', remove_previous_epoch_saves=False):
     """
@@ -305,9 +404,9 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
     the data set (vs methodically marching through it)                
     """
     assert(X_train.dtype == np.float32)
-    
-    sz = model.input_shape[-2:]
-    n_classes = model.output_shape[1]
+
+    sz = model.input_shape[-2:] if K.image_data_format() == "channels_first" else model.input_shape[1:-1]
+    n_classes = model.output_shape[1] if K.image_data_format() == "channels_first" else model.output_shape[-1]
     n_missing_valid = np.sum(np.all(Y_valid < 0, axis=1))
     score_all = []
     acc_best = -1
@@ -331,6 +430,11 @@ def train_model(X_train, Y_train, X_valid, Y_valid, model,
         for jj in print_generator(range(n_mb_per_epoch)):
             Xi, Yi = f_augment(X_train, Y_train, mb_size, sz)
             Yi = pixelwise_one_hot(Yi, n_classes)
+
+            if K.image_data_format() == "channels_last":
+                Xi = np.transpose(Xi, (0, 2, 3, 1))
+                Yi = np.transpose(Yi, (0, 2, 3, 1))
+
             loss, acc = model.train_on_batch(Xi, Yi)
             score_all.append(loss)
 
@@ -395,14 +499,20 @@ def deploy_model(X, model, two_pass=False):
            to invoke this function multiple times for different subsets of slices)
     """
 
-    tile_rows, tile_cols = model.input_shape[-2:]  # "tile" size
+    tile_rows, tile_cols = model.input_shape[-2:] if K.image_data_format() == "channels_first" else model.input_shape[1:-1]
     tile_gen = tile_generator(X, [tile_rows, tile_cols])
 
     Y_hat = None  # delay initialization until we know the # of classes
 
     # loop over all tiles in the image
     for Xi, (rr,cc) in tile_gen:
+        if K.image_data_format() == "channels_last":
+            Xi = np.transpose(Xi, (0, 2, 3, 1))
+
         Yi = model.predict(Xi)
+
+        if K.image_data_format() == "channels_last":
+            Yi = np.transpose(Yi, (0, 3, 1, 2))
         
         # create Y_hat if needed
         if Y_hat is None:
@@ -416,7 +526,13 @@ def deploy_model(X, model, two_pass=False):
     if two_pass:
         tile_gen = tile_generator(X, [tile_rows, tile_cols], offset=[int(tile_rows/2), int(tile_cols/2)])
         for Xi, (rr,cc) in tile_gen:
+            if K.image_data_format() == "channels_last":
+                Xi = np.transpose(Xi, (0, 2, 3, 1))
+
             Yi = model.predict(Xi)
+
+            if K.image_data_format() == "channels_last":
+                Yi = np.transpose(Yi, (0, 3, 1, 2))
 
             # the fraction of the interior to use could perhaps be a parameter.
             frac_r, frac_c = int(tile_rows/10), int(tile_cols/10)
@@ -429,7 +545,7 @@ def deploy_model(X, model, two_pass=False):
     return Y_hat
 
 
-def ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr, save_results=False, display_results=False, do_crop=False):
+def ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr, save_results=False, display_results=False, do_crop=False, ensemble_model_names=None):
     Y_hat_raw_per_model = []
     for weights in ensemble_model_weights:
         model.load_weights(weights)
@@ -459,7 +575,7 @@ def ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr, save_
     Y_hat_ensemble_std = np.std(Y_hat_raw_ensemble_mean, axis=1)
 
     if save_results:
-        np.savez("Y_ensemble_results.npz", X=X, Y=Y, Y_hat_raw_per_model=Y_hat_raw_per_model,
+        np.savez("DenseNetFCN_Y_ensemble_results_kfold/Y_ensemble_results_fold%d.npz" % FOLD, X=X, Y=Y, Y_hat_raw_per_model=Y_hat_raw_per_model,
                  Y_hat_raw_ensemble_mean=Y_hat_raw_ensemble_mean, Y_hat_per_model=Y_hat_per_model,
                  Y_hat_ensemble_mean=Y_hat_ensemble_mean, Y_hat_ensemble_std=Y_hat_ensemble_std)
 
@@ -474,7 +590,10 @@ def ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr, save_
 
             for model_i in range(len(Y_hat_per_model)):
                 plt.figure()
-                plt.title('Y_hat_ensemble_%d (Example %d)' % (model_i, example_i))
+                if ensemble_model_names is not None:
+                    plt.title('%s - Y_hat_ensemble_%d (Example %d)' % (ensemble_model_names[model_i].split('/')[-1], model_i, example_i))
+                else:
+                    plt.title('Y_hat_ensemble_%d (Example %d)' % (model_i, example_i))
                 plt.imshow(Y_hat_per_model[model_i, example_i])
                 plt.colorbar()
 
@@ -522,28 +641,58 @@ def batch_horiz_crop_from_fovea_center(X, new_width, crop_axis, fovea_center_arr
 
 def main():
     # Testing ensemble_models()...
-    K.set_image_dim_ordering('th')
+    # K.set_image_dim_ordering('th')
     from keras.models import load_model
 
     tile_size = (512, 256)
     layer_weights = [1, 10, 10, 10, 10, 1, 0]
     ace_tv_weights = [20, .01]
-    ensemble_model_weights = [
-        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_0/oct_seg_fold0_weights_epoch0388.hdf5",
-        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_1/PID11899_oct_seg_fold0_weights_epoch0440.hdf5",
-        # "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_2/PID22277_oct_seg_fold0_weights_epoch0468.hdf5",
-        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_3/PID555_oct_seg_fold0_weights_epoch0433.hdf5",
-        # "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_4/PID12142_oct_seg_fold0_weights_epoch0482.hdf5",
-        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG1/oct_seg_fold0_weights_epoch0199.hdf5",
-        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG2/oct_seg_fold0_weights_epoch0155.hdf5",
-        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/L1_SMOOTH/oct_seg_fold0_weights_epoch0178.hdf5",
-        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/NO_CHANGES/oct_seg_fold0_weights_epoch0199.hdf5",
-        "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/NO_CHANGES_2/oct_seg_fold0_weights_epoch0188.hdf5",
-    ]
-
     fovea_center_arr = np.asarray([382] * 5 + [370] * 5 + [394] * 5 + [370] * 5 + [376] * 5 + [372] * 5 + [372] * 5 + [442] * 5 + [390] * 5 + [366] * 5, dtype=int)
 
-    results = np.load("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_0/oct_seg_fold0_deploy_final.npz")
+    # ensemble_model_weights = [
+    #     "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_0/oct_seg_fold0_weights_epoch0388.hdf5",
+    #     "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_1/PID11899_oct_seg_fold0_weights_epoch0440.hdf5",
+    #     # "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_2/PID22277_oct_seg_fold0_weights_epoch0468.hdf5",
+    #     "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_3/PID555_oct_seg_fold0_weights_epoch0433.hdf5",
+    #     # "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG3_4/PID12142_oct_seg_fold0_weights_epoch0482.hdf5",
+    #     "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG1/oct_seg_fold0_weights_epoch0199.hdf5",
+    #     "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/AUG2/oct_seg_fold0_weights_epoch0155.hdf5",
+    #     "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/L1_SMOOTH/oct_seg_fold0_weights_epoch0178.hdf5",
+    #     "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/NO_CHANGES/oct_seg_fold0_weights_epoch0199.hdf5",
+    #     "/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/NO_CHANGES_2/oct_seg_fold0_weights_epoch0188.hdf5",
+    # ]
+
+    # Load weights for DenseNetFCN results for each fold (no emsemble here)
+    ensemble_model_weights = []
+
+    ensemble_model_weights.append(["/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/DenseNetsFCN_test1/PID26979_oct_seg_fold0_weights_epoch0453.hdf5"])
+    ensemble_model_weights.append(["/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/DenseNetsFCN_test1/PID26979_oct_seg_fold1_weights_epoch0242.hdf5"])
+    ensemble_model_weights.append(["/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/DenseNetsFCN_test1/PID26979_oct_seg_fold2_weights_epoch0363.hdf5"])
+    ensemble_model_weights.append(["/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/DenseNetsFCN_test1/PID26979_oct_seg_fold3_weights_epoch0472.hdf5"])
+    ensemble_model_weights.append(["/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/DenseNetsFCN_test1/PID26979_oct_seg_fold4_weights_epoch0497.hdf5"])
+    ensemble_model_weights.append(["/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/DenseNetsFCN_test1/PID26979_oct_seg_fold5_weights_epoch0472.hdf5"])
+    ensemble_model_weights.append(["/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/DenseNetsFCN_test1/PID26979_oct_seg_fold6_weights_epoch0431.hdf5"])
+    ensemble_model_weights.append(["/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/DenseNetsFCN_test1/PID26979_oct_seg_fold7_weights_epoch0424.hdf5"])
+    ensemble_model_weights.append(["/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/DenseNetsFCN_test1/PID26979_oct_seg_fold8_weights_epoch0452.hdf5"])
+    ensemble_model_weights.append(["/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/DenseNetsFCN_test1/PID26979_oct_seg_fold9_weights_epoch0461.hdf5"])
+    ensemble_model_weights = ensemble_model_weights[FOLD]
+
+    results_file = []
+    results_file.append("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/K_FOLD_ENSEMBLE/PID1358_oct_seg_fold0_deploy_final.npz")
+    results_file.append("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/K_FOLD_ENSEMBLE/PID739_oct_seg_fold1_deploy_final.npz")
+    results_file.append("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/K_FOLD_ENSEMBLE/PID739_oct_seg_fold2_deploy_final.npz")
+    results_file.append("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/K_FOLD_ENSEMBLE/PID739_oct_seg_fold3_deploy_final.npz")
+    results_file.append("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/K_FOLD_ENSEMBLE/PID1358_oct_seg_fold4_deploy_final.npz")
+    results_file.append("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/K_FOLD_ENSEMBLE/PID1358_oct_seg_fold5_deploy_final.npz")
+    results_file.append("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/K_FOLD_ENSEMBLE/PID1358_oct_seg_fold6_deploy_final.npz")
+    results_file.append("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/K_FOLD_ENSEMBLE/PID1358_oct_seg_fold7_deploy_final.npz")
+    results_file.append("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/K_FOLD_ENSEMBLE/PID1358_oct_seg_fold8_deploy_final.npz")
+    results_file.append("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/K_FOLD_ENSEMBLE/PID1587_oct_seg_fold9_deploy_final.npz")
+    results_file = results_file[FOLD]
+
+    # results = np.load("/home/joshinj1/Projects/bio-segmentation-dense/Examples/OCT/Ex_Default/K_FOLD_ENSEMBLE/PID1587_oct_seg_fold2_deploy_final.npz")
+    results = np.load(results_file)
+
     X = results['X'][results['test_slices']]
     Y = np.squeeze(results['Y'][results['test_slices']])
 
@@ -554,9 +703,11 @@ def main():
                    loss_a=ace_w, w_a=ace_tv_weights[0],
                    loss_b=total_variation_loss, w_b=ace_tv_weights[1])
 
-    model = create_unet((X.shape[1], tile_size[0], tile_size[1]), n_classes, f_loss=loss)
+    model = create_DenseNetFCN((tile_size[0], tile_size[1], X.shape[1]), n_classes,
+                                  f_loss=weighted_pixelwise_crossentropy(layer_weights))
+    # model = create_unet((X.shape[1], tile_size[0], tile_size[1]), n_classes, f_loss=loss)
 
-    ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr[results['test_slices']], save_results=False, display_results=True, do_crop=False)
+    ensemble_models(X, Y, model, ensemble_model_weights, fovea_center_arr[results['test_slices']], save_results=False, display_results=True, do_crop=False, ensemble_model_names=ensemble_model_weights)
 
 if __name__ == '__main__':
     main()
